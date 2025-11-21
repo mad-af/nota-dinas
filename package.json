@@ -26,6 +26,7 @@
         "@fortawesome/free-solid-svg-icons": "^6.7.2",
         "@fortawesome/vue-fontawesome": "^3.0.8",
         "@inertiajs/inertia": "^0.11.1",
-        "chart.js": "^4.4.9"
+        "chart.js": "^4.4.9",
+        "vue-pdf-embed": "^2.1.3"
     }
 }

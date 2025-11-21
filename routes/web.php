@@ -10,6 +10,7 @@ use App\Http\Controllers\SkpdController;
 use App\Http\Controllers\TteController;
 use App\Http\Controllers\EsignController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PdfController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
@@ -37,6 +38,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/esign/get-totp', [EsignController::class, 'requestTotp'])->name('esign.totp.request');
     Route::post('/esign/verify', [EsignController::class, 'verifyPdf'])->name('esign.verify');
     Route::get('/esign/download/{filename}', [EsignController::class, 'downloadSigned'])->name('esign.download');
+
+    // PDF Upload & Viewer
+    Route::get('/pdf/upload-viewer', [PdfController::class, 'showUploadViewer'])->name('pdf.uploadViewer');
+    Route::post('/pdf/upload', [PdfController::class, 'upload'])->name('pdf.upload');
 
 });
 
