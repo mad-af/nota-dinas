@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\NotaDinas;
+use App\Models\NotaLampiran;
 use App\Models\NotaPengiriman;
 use App\Models\NotaPersetujuan;
-use App\Models\NotaLampiran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -18,13 +18,16 @@ class NotaPengirimanController extends Controller
         $pengirim = Auth::user();
 
         $request->validate([
-            'catatan'       => 'nullable|string|max:500',
-            'lampiran.*'    => 'nullable|file|mimes:pdf|max:4096',
-            'dikirim_ke'    => 'nullable|in:asisten,sekda,bupati,skpd',
+            'catatan' => 'nullable|string|max:500',
+            'lampiran.*' => 'nullable|file|mimes:pdf|max:4096',
+            'dikirim_ke' => 'nullable|in:asisten,sekda,bupati,skpd',
         ]);
 
         $dari = $nota->tahap_saat_ini;
         if ($dari === 'skpd') {
+            if (! optional($nota->skpd)->asisten_id) {
+                return redirect()->back()->with('error', 'SKPD belum memiliki Asisten. Silakan minta admin menetapkan Asisten untuk SKPD ini.');
+            }
             $ke = 'asisten';
         } elseif ($dari === 'asisten') {
             $ke = 'sekda';
@@ -36,10 +39,10 @@ class NotaPengirimanController extends Controller
 
         $pengiriman = NotaPengiriman::create([
             'nota_dinas_id' => $nota->id,
-            'dikirim_dari'  => $dari,
-            'dikirim_ke'    => $ke,
-            'pengirim_id'   => $pengirim->id,
-            'catatan'       => $request->catatan,
+            'dikirim_dari' => $dari,
+            'dikirim_ke' => $ke,
+            'pengirim_id' => $pengirim->id,
+            'catatan' => $request->catatan,
         ]);
 
         $lampiranIds = [];
@@ -50,8 +53,8 @@ class NotaPengirimanController extends Controller
 
                 $lampiran = NotaLampiran::create([
                     'nota_dinas_id' => $nota->id,
-                    'nama_file'     => $file->getClientOriginalName(),
-                    'path'          => $path,
+                    'nama_file' => $file->getClientOriginalName(),
+                    'path' => $path,
                 ]);
 
                 $lampiranIds[] = $lampiran->id;
@@ -67,39 +70,39 @@ class NotaPengirimanController extends Controller
             }
         }
 
-        if (!empty($lampiranIds)) {
+        if (! empty($lampiranIds)) {
             $pengiriman->lampirans()->attach($lampiranIds);
         }
 
         if (in_array($pengirim->role, ['asisten', 'sekda'])) {
             NotaPersetujuan::create([
-                'nota_dinas_id'    => $nota->id,
-                'approver_id'      => $pengirim->id,
-                'skpd_id'          => $nota->skpd_id,
-                'role_approver'    => $pengirim->role,
-                'urutan'           => $pengirim->role === 'asisten' ? 1 : 2,
-                'status'           => 'disetujui',
+                'nota_dinas_id' => $nota->id,
+                'approver_id' => $pengirim->id,
+                'skpd_id' => $nota->skpd_id,
+                'role_approver' => $pengirim->role,
+                'urutan' => $pengirim->role === 'asisten' ? 1 : 2,
+                'status' => 'disetujui',
                 'catatan_terakhir' => $request->catatan,
-                'tanggal_update'   => now(),
+                'tanggal_update' => now(),
             ]);
         }
 
         $nota->update([
             'tahap_saat_ini' => $ke,
-            'status'         => 'proses',
+            'status' => 'proses',
         ]);
 
-        if (!in_array(auth()->user()->role, ['asisten', 'sekda', 'bupati'])) {
+        if (! in_array(auth()->user()->role, ['asisten', 'sekda', 'bupati'])) {
             return redirect()
-            ->back()
-            ->with('success', "Nota berhasil dikirim ke " . ucfirst($ke) . " dan menunggu persetujuan.");
-        }else{
+                ->back()
+                ->with('success', 'Nota berhasil dikirim ke '.ucfirst($ke).' dan menunggu persetujuan.');
+        } else {
             return redirect()
-            ->back()
-            ->with('success', "Nota berhasil dikirim ke " . ucfirst($ke) . " dan dicatat sebagai persetujuan anda.");
+                ->back()
+                ->with('success', 'Nota berhasil dikirim ke '.ucfirst($ke).' dan dicatat sebagai persetujuan anda.');
         }
-        
-    }    
+
+    }
 
     public function history($id)
     {
@@ -114,13 +117,13 @@ class NotaPengirimanController extends Controller
 
     public function returnNota(Request $request)
     {
-        if (!in_array(auth()->user()->role, ['asisten', 'sekda', 'bupati'])) {
+        if (! in_array(auth()->user()->role, ['asisten', 'sekda', 'bupati'])) {
             return abort(403, 'Akses tidak diizinkan');
         }
 
         $request->validate([
             'catatan' => 'required|string|max:500',
-            'nota_dinas_id' => 'required|exists:nota_dinas,id'
+            'nota_dinas_id' => 'required|exists:nota_dinas,id',
         ]);
 
         $notaDinas = NotaDinas::findOrFail($request->nota_dinas_id);
@@ -137,14 +140,14 @@ class NotaPengirimanController extends Controller
         $pengirim = Auth::user();
         if (in_array($pengirim->role, ['asisten', 'sekda', 'bupati'])) {
             NotaPersetujuan::create([
-                'nota_dinas_id'    => $notaDinas->id,
-                'approver_id'      => $pengirim->id,
-                'skpd_id'          => $notaDinas->skpd_id,
-                'role_approver'    => $pengirim->role,
-                'urutan'           => $pengirim->role === 'asisten' ? 1 : 2,
-                'status'           => 'dikembalikan',
+                'nota_dinas_id' => $notaDinas->id,
+                'approver_id' => $pengirim->id,
+                'skpd_id' => $notaDinas->skpd_id,
+                'role_approver' => $pengirim->role,
+                'urutan' => $pengirim->role === 'asisten' ? 1 : 2,
+                'status' => 'dikembalikan',
                 'catatan_terakhir' => $request->catatan,
-                'tanggal_update'   => now(),
+                'tanggal_update' => now(),
             ]);
         }
 

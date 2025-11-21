@@ -48,28 +48,39 @@ class UserSeeder extends Seeder
 
         for ($i = 1; $i <= 3; $i++) {
             DB::table('users')->insert([
-                'name' => 'Asisten ' . $i,
-                'email' => 'asisten' . $i . '@mail.com',
+                'name' => 'Asisten '.$i,
+                'email' => 'asisten'.$i.'@mail.com',
                 'password' => Hash::make('12345678'),
                 'role' => 'asisten',
                 'skpd_id' => null,
-                'jabatan' => 'Asisten ' . $i,
+                'jabatan' => 'Asisten '.$i,
                 'status' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
         }
 
+        $asistenIds = DB::table('users')->where('role', 'asisten')->pluck('id')->toArray();
+        if (! empty($asistenIds)) {
+            $allSkpds = DB::table('skpds')->get();
+            foreach ($allSkpds as $index => $skpd) {
+                $assignedAsistenId = $asistenIds[$index % count($asistenIds)];
+                DB::table('skpds')->where('id', $skpd->id)->update([
+                    'asisten_id' => $assignedAsistenId,
+                ]);
+            }
+        }
+
         $skpds = DB::table('skpds')->take(10)->get();
-        
+
         foreach ($skpds as $index => $skpd) {
             DB::table('users')->insert([
-                'name' => 'Admin EPENDI ' . ($index + 1),
-                'email' => 'skpd' . ($index + 1) . '@mail.com',
+                'name' => 'Admin EPENDI '.($index + 1),
+                'email' => 'skpd'.($index + 1).'@mail.com',
                 'password' => Hash::make('12345678'),
                 'role' => 'skpd',
                 'skpd_id' => $skpd->id,
-                'jabatan' => 'Admin ' . $skpd->nama_skpd,
+                'jabatan' => 'Admin '.$skpd->nama_skpd,
                 'status' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
