@@ -21,6 +21,8 @@ class EsignController extends Controller
     {
         $validated = $request->validate([
             'file_base64' => ['required', 'string'],
+            'files_base64' => ['nullable', 'array'],
+            'files_base64.*' => ['string'],
             'signer_id' => ['required_without:signer_email'],
             'signer_email' => ['required_without:signer_id', 'email'],
             'method' => ['required', 'in:passphrase,totp'],
@@ -51,14 +53,33 @@ class EsignController extends Controller
             ],
         ];
 
+        $files = $validated['files_base64'] ?? [$validated['file_base64']];
         $payload = [
             'nik' => $validated['signer_id'] ?? null,
             'email' => $validated['signer_email'] ?? null,
             'passphrase' => $validated['method'] === 'passphrase' ? ($validated['passphrase'] ?? null) : null,
             'totp' => $validated['method'] === 'totp' ? ($validated['totp'] ?? null) : null,
             'signatureProperties' => $signatureProperties,
-            'file' => [$validated['file_base64']],
+            'file' => $files,
         ];
+
+        $rawBase64 = $validated['file_base64'];
+        if (base64_decode($rawBase64, true) === false) {
+            return back()->with('error', 'File tidak valid (Base64 rusak).');
+        }
+
+        $statusPayload = [
+            'nik' => $validated['signer_id'] ?? null,
+            'email' => $validated['signer_email'] ?? null,
+        ];
+
+        $statusResp = $esign->checkUserStatus($statusPayload);
+        if ($statusResp->ok()) {
+            $userStatus = data_get($statusResp->json(), 'status');
+            if ($userStatus !== 'ISSUE') {
+                return back()->with('error', 'Status sertifikat tidak memenuhi syarat: '.(string) $userStatus);
+            }
+        }
 
         $correlationId = (string) Str::uuid();
         $resp = $esign->signPdf($payload);
@@ -71,24 +92,29 @@ class EsignController extends Controller
                 'status' => $resp->status(),
                 'message' => $resp->body(),
             ]);
-            return back()->with('error', 'Gagal menandatangani dokumen: ' . $resp->body());
+
+            return back()->with('error', 'Gagal menandatangani dokumen: '.$resp->body());
         }
 
-        $signedBase64 = (string) data_get($resp->json(), 'file.0');
-        $binary = base64_decode($signedBase64, true);
-        $filename = 'signed-' . (optional($request->user())->id ?? 'guest') . '-' . now()->format('YmdHis') . '-' . Str::random(6) . '.pdf';
-        $path = 'signed/' . $filename;
-        Storage::put($path, $binary);
+        $signedFiles = (array) data_get($resp->json(), 'file', []);
+        $savedPaths = [];
+        foreach ($signedFiles as $signedBase64) {
+            $binary = base64_decode((string) $signedBase64, true);
+            $filename = 'signed-'.(optional($request->user())->id ?? 'guest').'-'.now()->format('YmdHis').'-'.Str::random(6).'.pdf';
+            $path = 'signed/'.$filename;
+            Storage::put($path, $binary);
+            $savedPaths[] = $path;
+        }
 
         Log::info('esign.sign.success', [
             'correlation_id' => $correlationId,
             'user_id' => optional($request->user())->id,
             'endpoint' => '/api/v2/sign/pdf',
             'status' => $resp->status(),
-            'file' => $path,
+            'file' => $savedPaths[0] ?? null,
         ]);
 
-        return back()->with('success', 'Dokumen berhasil ditandatangani.')->with('signed_path', $path);
+        return back()->with('success', 'Dokumen berhasil ditandatangani.')->with('signed_path', $savedPaths[0] ?? null)->with('signed_paths', $savedPaths);
     }
 
     public function requestTotp(Request $request, EsignClient $esign)
@@ -114,7 +140,8 @@ class EsignController extends Controller
                 'status' => $resp->status(),
                 'message' => $resp->body(),
             ]);
-            return back()->with('error', 'Gagal meminta OTP: ' . $resp->body());
+
+            return back()->with('error', 'Gagal meminta OTP: '.$resp->body());
         }
 
         Log::info('esign.totp.success', [
@@ -150,7 +177,8 @@ class EsignController extends Controller
                 'status' => $resp->status(),
                 'message' => $resp->body(),
             ]);
-            return back()->with('error', 'Gagal verifikasi dokumen: ' . $resp->body());
+
+            return back()->with('error', 'Gagal verifikasi dokumen: '.$resp->body());
         }
 
         Log::info('esign.verify.success', [
@@ -165,10 +193,11 @@ class EsignController extends Controller
 
     public function downloadSigned(string $filename)
     {
-        $path = 'signed/' . $filename;
+        $path = 'signed/'.$filename;
         if (! Storage::exists($path)) {
             abort(404);
         }
+
         return response()->streamDownload(function () use ($path) {
             echo Storage::get($path);
         }, $filename, ['Content-Type' => 'application/pdf']);

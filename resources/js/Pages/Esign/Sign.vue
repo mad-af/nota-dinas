@@ -70,6 +70,7 @@ const requestOtp = () => {
 </script>
 
 <template>
+
   <Head title="TTE Sign" />
   <AuthenticatedLayout>
     <SuccessFlash :flash="flash" @clearFlash="clearFlash" />
@@ -96,7 +97,8 @@ const requestOtp = () => {
             </div>
             <div v-if="form.method === 'passphrase'">
               <InputLabel value="Passphrase" />
-              <input type="password" v-model="form.passphrase" autocomplete="off" class="mt-1 block w-full border-gray-300 rounded-md" />
+              <input type="password" v-model="form.passphrase" autocomplete="off"
+                class="mt-1 block w-full border-gray-300 rounded-md" />
             </div>
             <div v-if="form.method === 'totp'">
               <InputLabel value="OTP" />
@@ -105,7 +107,8 @@ const requestOtp = () => {
             </div>
             <div>
               <InputLabel value="PDF" />
-              <input ref="fileInput" type="file" accept="application/pdf" @change="onFileChange" class="mt-1 block w-full" />
+              <input ref="fileInput" type="file" accept="application/pdf" @change="onFileChange"
+                class="mt-1 block w-full" />
             </div>
             <div>
               <InputLabel value="Halaman" />
@@ -134,9 +137,12 @@ const requestOtp = () => {
           </div>
           <div class="mt-4">
             <PrimaryButton @click="submit" :disabled="loading">Tandatangani</PrimaryButton>
+            <div v-if="flash.signed_path" class="mt-3">
+              <a :href="route('esign.download', flash.signed_path.split('/').pop())" class="text-blue-600 underline">Unduh PDF Bertanda Tangan</a>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </AuthenticatedLayout>
-  </template>
+</template>

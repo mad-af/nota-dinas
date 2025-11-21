@@ -9,6 +9,16 @@ use Tests\TestCase;
 
 class EsignSignFlowTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config([
+            'services.esign.url' => 'http://localhost',
+            'services.esign.user' => 'user',
+            'services.esign.pass' => 'pass',
+        ]);
+    }
+
     public function test_sign_flow_saves_signed_pdf_and_no_db_writes(): void
     {
         $user = User::factory()->create();
@@ -16,6 +26,7 @@ class EsignSignFlowTest extends TestCase
 
         Storage::fake();
         Http::fake([
+            '*/api/v2/user/check/status' => Http::response(['status' => 'ISSUE'], 200),
             '*/api/v2/sign/pdf' => Http::response(['file' => [base64_encode('%PDF-1.4 fake')]], 200),
         ]);
 
