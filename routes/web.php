@@ -8,6 +8,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\SkpdController;
 use App\Http\Controllers\TteController;
+use App\Http\Controllers\EsignController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -30,6 +31,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/nota-per-year', [DashboardController::class, 'getNotaPerYear']);
     Route::get('/approved-nota-dinas', [DashboardController::class, 'getApprovedNotaDinasBySkpd']);
     Route::get('/nota-dinas-stage', [DashboardController::class, 'getNotaDinasByStage']);
+
+    Route::get('/esign/sign', [EsignController::class, 'showForm'])->name('esign.sign.show');
+    Route::post('/esign/sign', [EsignController::class, 'submitSign'])->name('esign.sign.submit');
+    Route::post('/esign/get-totp', [EsignController::class, 'requestTotp'])->name('esign.totp.request');
+    Route::post('/esign/verify', [EsignController::class, 'verifyPdf'])->name('esign.verify');
+    Route::get('/esign/download/{filename}', [EsignController::class, 'downloadSigned'])->name('esign.download');
 
 });
 

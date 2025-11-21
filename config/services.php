@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'esign' => [
+        'url' => env('ESIGN_BASE_URL'),
+        'user' => env('ESIGN_API_USER'),
+        'pass' => env('ESIGN_API_PASS'),
+        'client_ip_whitelist' => env('ESIGN_CLIENT_IP_WHITELIST'),
+    ],
+
 ];
