@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\EsignActivationRequest;
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Skpd;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -22,7 +23,7 @@ class ProfileController extends Controller
         return Inertia::render('Profile/Edit', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
-            //'skpds' => Skpd::where('status', true)->select('id', 'nama_skpd')->get()
+            // 'skpds' => Skpd::where('status', true)->select('id', 'nama_skpd')->get()
         ]);
     }
 
@@ -31,13 +32,22 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
+        $validated = $request->validated();
+
+        $user->fill($validated);
+
+        if ($request->hasFile('signature')) {
+            $file = $request->file('signature');
+            $path = $file->store('signatures', 'public');
+            $user->signature_path = $path;
+        }
 
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;
         }
 
-        $request->user()->save();
+        $user->save();
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }
@@ -61,5 +71,22 @@ class ProfileController extends Controller
         $request->session()->regenerateToken();
 
         return Redirect::to('/');
+    }
+
+    public function updateEsign(EsignActivationRequest $request): RedirectResponse
+    {
+        $user = $request->user();
+        $validated = $request->validated();
+
+        $user->nik = $validated['nik'];
+
+        if ($request->hasFile('signature')) {
+            $path = $request->file('signature')->store('signatures', 'public');
+            $user->signature_path = $path;
+        }
+
+        $user->save();
+
+        return Redirect::route('profile.edit')->with('status', 'esign-updated');
     }
 }

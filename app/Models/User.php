@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-//use Illuminate\Contracts\Auth\MustVerifyEmail;
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -25,7 +25,8 @@ class User extends Authenticatable
         'role',
         'jabatan',
         'skpd_id',
-        'status'
+        'status',
+        'signature_path',
     ];
 
     /**
@@ -66,10 +67,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Skpd::class, 'asisten_id');
     }
+
     public function notaPersetujuan()
     {
         return $this->hasMany(NotaPersetujuan::class, 'approver_id');
     }
+
     public static $rules = [
         'nik' => 'required|digits:16|unique:users',
     ];
