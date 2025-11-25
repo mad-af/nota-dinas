@@ -14,13 +14,9 @@ class EsignClient
 
     protected function client()
     {
-        $clientIp = (string) config('services.esign.client_ip_whitelist');
         $http = Http::withBasicAuth((string) config('services.esign.user'), (string) config('services.esign.pass'))
             ->acceptJson()
             ->asJson();
-        if (! empty($clientIp)) {
-            $http = $http->withHeaders(['X-Forwarded-For' => $clientIp]);
-        }
 
         return $http;
     }

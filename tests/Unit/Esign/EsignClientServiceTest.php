@@ -23,7 +23,6 @@ class EsignClientServiceTest extends TestCase
             'services.esign.url' => 'https://example.test',
             'services.esign.user' => 'u',
             'services.esign.pass' => 'p',
-            'services.esign.client_ip_whitelist' => '1.2.3.4',
         ]);
     }
 

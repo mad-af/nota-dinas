@@ -1,3 +1,45 @@
+<script setup>
+import { Head } from '@inertiajs/vue3'
+import { ref } from 'vue'
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import SuccessFlash from '@/Components/SuccessFlash.vue'
+import ErrorFlash from '@/Components/ErrorFlash.vue'
+import VuePdfEmbed from 'vue-pdf-embed'
+import 'vue-pdf-embed/dist/styles/annotationLayer.css'
+import 'vue-pdf-embed/dist/styles/textLayer.css'
+import { router } from '@inertiajs/vue3'
+
+const props = defineProps({
+  doc: { type: Object, required: true },
+  signers: { type: Array, default: () => [] },
+  hasSigned: { type: Boolean, default: false },
+  currentUserId: { type: String, default: '' },
+})
+
+const flash = ref({ success: null, error: null })
+const clearFlash = () => { flash.value = { success: null, error: null } }
+
+const pdfUrl = ref(props.doc?.url || '')
+const currentPage = ref(1)
+const totalPages = ref(0)
+const scale = ref(1.25)
+
+
+function onLoaded(doc) { totalPages.value = doc?.numPages || 0 }
+function onLoadingFailed() { flash.value.error = 'Gagal memuat dokumen.' }
+function onRenderingFailed() { flash.value.error = 'Gagal merender halaman PDF.' }
+
+function zoomIn() { scale.value = Math.min(scale.value + 0.25, 3) }
+function zoomOut() { scale.value = Math.max(scale.value - 0.25, 0.5) }
+function resetZoom() { scale.value = 1 }
+function prevPage() { currentPage.value = Math.max(currentPage.value - 1, 1) }
+function nextPage() { currentPage.value = Math.min(currentPage.value + 1, totalPages.value || currentPage.value + 1) }
+
+function navigateToSign() {
+  router.visit(route('nota.lampiran.sign.page', props.doc.id))
+}
+</script>
+
 <template>
 
   <Head :title="doc?.name ? `Lampiran: ${doc.name}` : 'Lampiran'" />
@@ -13,7 +55,7 @@
             <div class="flex gap-2 items-center">
               <a :href="doc?.url" download
                 class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded hover:bg-green-700">Download</a>
-              <button @click="navigateToSign"
+              <button v-if="!hasSigned" @click="navigateToSign"
                 class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700">
                 Buka Halaman TTE
               </button>
@@ -74,44 +116,3 @@
   </AuthenticatedLayout>
 </template>
 
-<script setup>
-import { Head } from '@inertiajs/vue3'
-import { ref } from 'vue'
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import SuccessFlash from '@/Components/SuccessFlash.vue'
-import ErrorFlash from '@/Components/ErrorFlash.vue'
-import VuePdfEmbed from 'vue-pdf-embed'
-import 'vue-pdf-embed/dist/styles/annotationLayer.css'
-import 'vue-pdf-embed/dist/styles/textLayer.css'
-import { router } from '@inertiajs/vue3'
-
-const props = defineProps({
-  doc: { type: Object, required: true },
-  signers: { type: Array, default: () => [] },
-  hasSigned: { type: Boolean, default: false },
-  currentUserId: { type: String, default: '' },
-})
-
-const flash = ref({ success: null, error: null })
-const clearFlash = () => { flash.value = { success: null, error: null } }
-
-const pdfUrl = ref(props.doc?.url || '')
-const currentPage = ref(1)
-const totalPages = ref(0)
-const scale = ref(1.25)
-
-
-function onLoaded(doc) { totalPages.value = doc?.numPages || 0 }
-function onLoadingFailed() { flash.value.error = 'Gagal memuat dokumen.' }
-function onRenderingFailed() { flash.value.error = 'Gagal merender halaman PDF.' }
-
-function zoomIn() { scale.value = Math.min(scale.value + 0.25, 3) }
-function zoomOut() { scale.value = Math.max(scale.value - 0.25, 0.5) }
-function resetZoom() { scale.value = 1 }
-function prevPage() { currentPage.value = Math.max(currentPage.value - 1, 1) }
-function nextPage() { currentPage.value = Math.min(currentPage.value + 1, totalPages.value || currentPage.value + 1) }
-
-function navigateToSign() {
-  router.visit(route('nota.lampiran.sign.page', props.doc.id))
-}
-</script>

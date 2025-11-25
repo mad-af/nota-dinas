@@ -111,6 +111,9 @@ class NotaDinasController extends Controller
         })->values();
         $currentUserId = (string) (Auth::id());
         $hasSigned = in_array($currentUserId, $ids, true);
+        if ($hasSigned) {
+            return redirect()->route('nota.lampiran.view', $lampiran->id);
+        }
         $doc = [
             'id' => $lampiran->id,
             'name' => $lampiran->nama_file,
