@@ -1,116 +1,9 @@
-<template>
-
-  <Head :title="doc?.name ? `TTE: ${doc.name}` : 'TTE Lampiran'" />
-  <AuthenticatedLayout>
-    <SuccessFlash :flash="flash" @clearFlash="clearFlash" />
-    <ErrorFlash :flash="flash" @clearFlash="clearFlash" />
-
-    <div class="pt-6 mx-2 sm:pt-24 sm:px-2">
-      <div class="mx-auto space-y-6 max-w-6xl sm:px-6 lg:px-6">
-        <div class="p-6 bg-white shadow-sm sm:rounded-lg">
-          <div class="flex flex-wrap gap-2 justify-between items-center">
-            <h2 class="text-lg font-semibold text-gray-800 sm:text-xl">TTE Lampiran</h2>
-          </div>
-        </div>
-
-        <div class="flex flex-col gap-6 md:flex-row">
-          <div class="p-0 bg-white shadow-sm sm:rounded-lg md:p-6 md:flex-1">
-            <div class="flex flex-col gap-4 px-6 pt-6 md:flex-row md:items-center md:justify-between md:p-0">
-              <h2 class="text-lg font-semibold text-gray-800 sm:text-xl">Dokumen</h2>
-              <div class="flex flex-wrap gap-2 items-center">
-                <button @click="zoomOut" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">-</button>
-                <span class="text-sm text-gray-700">Zoom {{ Math.round(scale * 100) }}%</span>
-                <button @click="zoomIn" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">+</button>
-                <button @click="resetZoom" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">Reset</button>
-                <div class="mx-2 w-px h-6 bg-gray-300"></div>
-                <button @click="prevPage" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">Prev</button>
-                <span class="text-sm text-gray-700">Halaman {{ currentPage }} / {{ totalPages || '-' }}</span>
-                <button @click="nextPage" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">Next</button>
-              </div>
-            </div>
-
-            <div class="mt-4 md:mt-6">
-              <div v-if="!pdfUrl" class="p-6 text-sm text-gray-600">Dokumen tidak ditemukan.</div>
-              <div v-else class="w-full">
-                <div class="overflow-auto w-full">
-                  <div ref="wrapRef" class="relative w-full bg-gray-50">
-                    <VuePdfEmbed annotation-layer text-layer :source="pdfUrl" :page="currentPage" :scale="scale"
-                      @loaded="onLoaded" @loading-failed="onLoadingFailed" @rendering-failed="onRenderingFailed"
-                      @rendered="onRendered" class="min-h-[80vh] w-full h-full" />
-                    <Vue3DraggableResizable v-if="viewerReady && form.tampilan === 'VIS'" :x="absCoord.x" :y="absCoord.y" :w="absCoord.width"
-                      :h="absCoord.height" :parent="true" :draggable="!!pdfUrl" :resizable="!!pdfUrl" :active="true"
-                      class="absolute" @dragging="onDrag" @resizing="onResize">
-                      <div class="w-full h-full border-2 border-indigo-500 bg-indigo-200/40"></div>
-                    </Vue3DraggableResizable>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="md:w-96 shrink-0" v-if="isEsignReady">
-            <div class="p-4 bg-white rounded-md border">
-              <h3 class="text-base font-semibold text-gray-900">Form TTE</h3>
-              <p class="mt-1 text-sm text-gray-600">Masukkan data yang diminta oleh layanan eSign.</p>
-              <div class="mt-4 space-y-3">
-                <div class="grid gap-3">
-                  <div>
-                    <label class="text-sm text-gray-700">NIK Penanda Tangan</label>
-                    <input type="text" v-model="form.signer_id" readonly class="px-2 py-1 mt-1 w-full text-sm bg-gray-50 text-gray-600 border border-gray-300 rounded cursor-not-allowed" placeholder="Diambil dari profil" />
-                  </div>
-                  <div>
-                    <label class="text-sm text-gray-700">Passphrase</label>
-                    <input type="password" v-model="form.passphrase" class="px-2 py-1 mt-1 w-full text-sm rounded border" placeholder="Masukkan passphrase" />
-                  </div>
-                  <div>
-                    <label class="text-sm text-gray-700">Tampilan</label>
-                    <select v-model="form.tampilan" class="px-2 py-1 mt-1 w-full text-sm rounded border">
-                      <option value="VIS" v-if="!!props.currentUserSignaturePath">Tampilkan Tanda Tangan</option>
-                      <option value="INV">Sembunyikan Tanda Tangan</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="text-sm text-gray-700">Lokasi</label>
-                    <input type="text" v-model="form.location" class="px-2 py-1 mt-1 w-full text-sm rounded border" placeholder="Opsional" />
-                  </div>
-                  <div>
-                    <label class="text-sm text-gray-700">Alasan</label>
-                    <input type="text" v-model="form.reason" class="px-2 py-1 mt-1 w-full text-sm rounded border" placeholder="Opsional" />
-                  </div>
-                </div>
-                <div class="flex gap-2 items-center">
-                  <button @click="startSigning" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700" :disabled="signing">
-                    <span v-if="!signing">Mulai TTE</span>
-                    <span v-else>Memproses…</span>
-                  </button>
-                  <span class="text-xs text-gray-600">Status: {{ statusText }}</span>
-                </div>
-                <div class="mt-2 text-xs text-gray-500">
-                  Posisi tanda tangan (%):
-                  {{ { x: +(percentCoord.x.toFixed(4)), y: +(percentCoord.y.toFixed(4)), width: +(percentCoord.width.toFixed(4)), height: +(percentCoord.height.toFixed(4)) } }}
-                </div>
-              </div>
-              
-            </div>
-          </div>
-          <div v-else class="md:w-96 shrink-0">
-            <div class="p-4 bg-white rounded-md border">
-              <h3 class="text-base font-semibold text-gray-900">Aktivasi eSign Diperlukan</h3>
-              <p class="mt-2 text-sm text-gray-600">Silakan lengkapi NIK dan unggah spesimen tanda tangan pada halaman profil sebelum melakukan TTE.</p>
-              <button type="button" @click="goToEsignSetup" class="inline-block mt-3 px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100">Buka Pengaturan eSign</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </AuthenticatedLayout>
-</template>
-
 <script setup>
 import { Head, router } from '@inertiajs/vue3'
 import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import Modal from '@/Components/Modal.vue'
 import SuccessFlash from '@/Components/SuccessFlash.vue'
 import ErrorFlash from '@/Components/ErrorFlash.vue'
 import VuePdfEmbed from 'vue-pdf-embed'
@@ -138,11 +31,16 @@ const scale = ref(1.25)
 
 const wrapRef = ref(null)
 const viewerReady = ref(false)
-const absCoord = ref({ x: 50, y: 50, width: 200, height: 80 })
+const absCoord = ref({ x: 50, y: 50, width: 80, height: 80 })
 const percentCoord = ref({ x: 0, y: 0, width: 0, height: 0 })
 
 const isEsignReady = computed(() => !!props.currentUserNik)
 function goToEsignSetup() { router.visit(route('profile.edit') + '#esign-setup') }
+const safeSignatureUrl = computed(() => {
+  const p = props.currentUserSignaturePath || ''
+  const ok = /^[A-Za-z0-9_\-\/\.]+$/.test(p) && !p.includes('..')
+  return ok && p ? '/storage/' + p : ''
+})
 
 function onLoaded(doc) { totalPages.value = doc?.numPages || 0 }
 function onLoadingFailed() { flash.value.error = 'Gagal memuat dokumen.' }
@@ -226,21 +124,63 @@ function resetBox() {
   updatePercentFromAbs()
 }
 
-const form = ref({ consent: false, signer_id: '', method: 'passphrase', passphrase: '', tampilan: 'VIS', location: '', reason: '' })
+const form = ref({ consent: false, signer_id: '', method: 'passphrase', tampilan: 'VIS', location: '', reason: '' })
 const signing = ref(false)
 const statusText = ref(props.hasSigned ? 'Sudah ditandatangani' : 'Belum ditandatangani')
-let poller = null
+const pollingActive = ref(false)
+const pollDelayMs = ref(3000)
+let pollTimeout = null
 
 function validate() {
-  if (!form.value.consent) { flash.value.error = 'Anda harus menyetujui untuk melanjutkan TTE.'; return false }
   if (!form.value.signer_id) { flash.value.error = 'NIK penanda tangan wajib diisi.'; return false }
-  if (!form.value.passphrase) { flash.value.error = 'Passphrase wajib diisi.'; return false }
   if (form.value.tampilan === 'VIS' && !props.currentUserSignaturePath) {
     flash.value.error = 'Spesimen tanda tangan belum tersedia. Gunakan tampilan INV.'
     form.value.tampilan = 'INV'
     return false
   }
   return true
+}
+
+const showPassphraseModal = ref(false)
+const passphraseInput = ref('')
+const passphraseError = ref('')
+const passInputRef = ref(null)
+const showPass = ref(false)
+
+function openPassphraseModal() {
+  passphraseInput.value = ''
+  passphraseError.value = ''
+  showPassphraseModal.value = true
+}
+
+function closePassphraseModal() {
+  showPassphraseModal.value = false
+  passphraseInput.value = ''
+  passphraseError.value = ''
+  showPass.value = false
+  if (passInputRef.value) { try { passInputRef.value.value = '' } catch { } }
+}
+
+
+function validatePassphrase(p) {
+  passphraseError.value = ''
+  if (!p || typeof p !== 'string') { passphraseError.value = 'Passphrase wajib diisi.'; return false }
+  return true
+}
+
+async function confirmPassphrase() {
+  const p = passphraseInput.value
+  if (!validate()) return
+  if (!validatePassphrase(p)) return
+  showPassphraseModal.value = false
+  try {
+    await startSigning(p)
+  } finally {
+    passphraseInput.value = ''
+    passphraseError.value = ''
+    passStrength.value = ''
+    if (passInputRef.value) { try { passInputRef.value.value = '' } catch { } }
+  }
 }
 
 async function getFileBase64FromUrl(url) {
@@ -254,7 +194,7 @@ async function getFileBase64FromUrl(url) {
   return btoa(binary)
 }
 
-async function startSigning() {
+async function startSigning(passphrase) {
   if (!validate()) return
   signing.value = true
   flash.value = { success: null, error: null }
@@ -265,7 +205,7 @@ async function startSigning() {
       file_base64: fileBase64,
       signer_id: form.value.signer_id || null,
       method: 'passphrase',
-      passphrase: form.value.passphrase,
+      passphrase,
       tampilan: form.value.tampilan || 'VIS',
       imageBase64: null,
       page: currentPage.value,
@@ -291,22 +231,193 @@ async function startSigning() {
 
 // no OTP flow for passphrase-only mode
 
-async function pollStatus() {
+async function runPoll() {
+  if (!pollingActive.value) return
+  if (document.hidden || !navigator.onLine) { schedulePoll(); return }
   try {
     const { data } = await axios.get(route('nota.lampiran.status', props.doc.id))
-    if (data?.hasSigned) {
-      statusText.value = 'Berhasil ditandatangani'
-      if (poller) clearInterval(poller)
-    }
+    if (data?.hasSigned) { statusText.value = 'Berhasil ditandatangani'; stopPolling(); return }
+    pollDelayMs.value = Math.min(pollDelayMs.value + 2000, 15000)
   } catch { }
+  schedulePoll()
+}
+
+function schedulePoll() {
+  if (!pollingActive.value) return
+  pollTimeout = setTimeout(runPoll, pollDelayMs.value)
+}
+
+function startPolling() {
+  if (pollingActive.value) return
+  pollingActive.value = true
+  pollDelayMs.value = 3000
+  schedulePoll()
+}
+
+function stopPolling() {
+  pollingActive.value = false
+  if (pollTimeout) { clearTimeout(pollTimeout); pollTimeout = null }
 }
 
 function onWindowResize() { updateAbsFromPercent() }
+function onVisibilityChange() { if (!document.hidden) { pollDelayMs.value = 3000 } }
+function onOnline() { pollDelayMs.value = 3000 }
+function onFocus() { pollDelayMs.value = 3000 }
 onMounted(() => {
-  poller = setInterval(pollStatus, 2000)
+  startPolling()
   window.addEventListener('resize', onWindowResize)
+  window.addEventListener('visibilitychange', onVisibilityChange)
+  window.addEventListener('online', onOnline)
+  window.addEventListener('focus', onFocus)
   if (!props.currentUserSignaturePath) { form.value.tampilan = 'INV' }
   if (props.currentUserNik) { form.value.signer_id = props.currentUserNik }
 })
-onUnmounted(() => { if (poller) clearInterval(poller); window.removeEventListener('resize', onWindowResize) })
+onUnmounted(() => {
+  stopPolling()
+  window.removeEventListener('resize', onWindowResize)
+  window.removeEventListener('visibilitychange', onVisibilityChange)
+  window.removeEventListener('online', onOnline)
+  window.removeEventListener('focus', onFocus)
+})
 </script>
+
+<template>
+
+  <Head :title="doc?.name ? `TTE: ${doc.name}` : 'TTE Lampiran'" />
+  <AuthenticatedLayout>
+    <SuccessFlash :flash="flash" @clearFlash="clearFlash" />
+    <ErrorFlash :flash="flash" @clearFlash="clearFlash" />
+
+    <div class="pt-6 mx-2 sm:pt-24 sm:px-2">
+      <div class="mx-auto space-y-6 max-w-6xl sm:px-6 lg:px-6">
+        <div class="p-6 bg-white shadow-sm sm:rounded-lg">
+          <div class="flex flex-wrap gap-2 justify-between items-center">
+            <h2 class="text-lg font-semibold text-gray-800 sm:text-xl">TTE Lampiran</h2>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-6 md:flex-row">
+          <div class="p-0 bg-white shadow-sm sm:rounded-lg md:p-6 md:flex-1">
+            <div class="flex flex-col gap-4 px-6 pt-6 md:flex-row md:items-center md:justify-between md:p-0">
+              <h2 class="text-lg font-semibold text-gray-800 sm:text-xl">Dokumen</h2>
+              <div class="flex flex-wrap gap-2 items-center">
+                <button @click="zoomOut" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">-</button>
+                <span class="text-sm text-gray-700">Zoom {{ Math.round(scale * 100) }}%</span>
+                <button @click="zoomIn" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">+</button>
+                <button @click="resetZoom" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">Reset</button>
+                <div class="mx-2 w-px h-6 bg-gray-300"></div>
+                <button @click="prevPage" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">Prev</button>
+                <span class="text-sm text-gray-700">Halaman {{ currentPage }} / {{ totalPages || '-' }}</span>
+                <button @click="nextPage" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">Next</button>
+              </div>
+            </div>
+
+            <div class="mt-4 md:mt-6">
+              <div v-if="!pdfUrl" class="p-6 text-sm text-gray-600">Dokumen tidak ditemukan.</div>
+              <div v-else class="w-full">
+                <div class="overflow-auto w-full">
+                  <div ref="wrapRef" class="relative w-full bg-gray-50">
+                    <VuePdfEmbed annotation-layer text-layer :source="pdfUrl" :page="currentPage" :scale="scale"
+                      @loaded="onLoaded" @loading-failed="onLoadingFailed" @rendering-failed="onRenderingFailed"
+                      @rendered="onRendered" class="min-h-[80vh] w-full h-full" />
+                    <Vue3DraggableResizable v-if="viewerReady && form.tampilan === 'VIS'" :x="absCoord.x"
+                      :y="absCoord.y" :w="absCoord.width" :h="absCoord.height" :parent="true" :draggable="!!pdfUrl"
+                      :resizable="!!pdfUrl" :active="true" class="absolute" @dragging="onDrag" @resizing="onResize">
+                      <img v-if="safeSignatureUrl" :src="safeSignatureUrl" class="object-contain w-full h-full" />
+                      <div v-else class="w-full h-full border-2 border-indigo-500 bg-indigo-200/40"></div>
+                    </Vue3DraggableResizable>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="md:w-96 shrink-0" v-if="isEsignReady">
+            <div class="p-4 bg-white rounded-md border">
+              <h3 class="text-base font-semibold text-gray-900">Form TTE</h3>
+              <p class="mt-1 text-sm text-gray-600">Masukkan data yang diminta oleh layanan eSign.</p>
+              <div class="mt-4 space-y-3">
+                <div class="grid gap-3">
+                  <div>
+                    <label class="text-sm text-gray-700">NIK Penanda Tangan</label>
+                    <input type="text" v-model="form.signer_id" readonly
+                      class="px-2 py-1 mt-1 w-full text-sm text-gray-600 bg-gray-50 rounded border border-gray-300 cursor-not-allowed"
+                      placeholder="Diambil dari profil" />
+                  </div>
+                  <div>
+                    <label class="text-sm text-gray-700">Tampilan</label>
+                    <select v-model="form.tampilan" class="px-2 py-1 mt-1 w-full text-sm rounded border">
+                      <option value="VIS" v-if="!!props.currentUserSignaturePath">Tampilkan Tanda Tangan</option>
+                      <option value="INV">Sembunyikan Tanda Tangan</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-sm text-gray-700">Lokasi</label>
+                    <input type="text" v-model="form.location" class="px-2 py-1 mt-1 w-full text-sm rounded border"
+                      placeholder="Opsional" />
+                  </div>
+                  <div>
+                    <label class="text-sm text-gray-700">Alasan</label>
+                    <input type="text" v-model="form.reason" class="px-2 py-1 mt-1 w-full text-sm rounded border"
+                      placeholder="Opsional" />
+                  </div>
+                </div>
+                <div class="flex gap-2 items-center">
+                  <button @click="openPassphraseModal"
+                    class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700"
+                    :disabled="signing">
+                    <span v-if="!signing">Tanda Tangan Elektronik</span>
+                    <span v-else>Memproses…</span>
+                  </button>
+                  <span class="text-xs text-gray-600">Status: {{ statusText }}</span>
+                </div>
+                <div class="mt-2 text-xs text-gray-500">
+
+                  Posisi tanda tangan (%):
+                  {{ {
+                    x: +(percentCoord.x.toFixed(4)), y: +(percentCoord.y.toFixed(4)), width:
+                      +(percentCoord.width.toFixed(4)), height: +(percentCoord.height.toFixed(4)) } }}
+                </div>
+              </div>
+
+            </div>
+          </div>
+          <div v-else class="md:w-96 shrink-0">
+            <div class="p-4 bg-white rounded-md border">
+              <h3 class="text-base font-semibold text-gray-900">Aktivasi eSign Diperlukan</h3>
+              <p class="mt-2 text-sm text-gray-600">Silakan lengkapi NIK dan unggah spesimen tanda tangan pada halaman
+                profil sebelum melakukan TTE.</p>
+              <button type="button" @click="goToEsignSetup"
+                class="inline-block px-3 py-2 mt-3 text-sm bg-gray-50 rounded border hover:bg-gray-100">Buka Pengaturan
+                eSign</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Passphrase Modal -->
+    <Modal :show="showPassphraseModal" @close="closePassphraseModal">
+      <form autocomplete="off" class="p-6 space-y-4" >
+        <h3 class="text-base font-semibold text-gray-900">Masukkan Passphrase</h3>
+        <p class="text-xs text-gray-600">Passphrase tidak disimpan. Hindari penggunaan yang lemah.</p>
+        <div class="relative">
+          <input ref="passInputRef" :type="showPass ? 'text' : 'password'" :value="passphraseInput"
+            @input="(e) => { passphraseInput = e.target.value }" @focus="(e) => { e.target.readOnly = false }"
+            class="px-2 py-2 pr-16 w-full text-sm rounded border" placeholder="Passphrase" autocomplete="new-password"
+            autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+          <button type="button" @click="showPass = !showPass"
+            class="absolute right-2 top-1/2 px-2 py-1 text-xs bg-white rounded border -translate-y-1/2 hover:bg-gray-50">
+            {{ showPass ? 'Hide' : 'Show' }}
+          </button>
+          <div v-if="passphraseError" class="mt-2 text-xs text-red-600">{{ passphraseError }}</div>
+        </div>
+        <div class="flex gap-2 justify-end">
+          <button type="button" @click="closePassphraseModal"
+            class="px-3 py-2 text-sm bg-gray-50 rounded border hover:bg-gray-100">Cancel</button>
+          <button type="button" @click="confirmPassphrase"
+            class="px-3 py-2 text-sm text-white bg-indigo-600 rounded hover:bg-indigo-700">Kirim</button>
+        </div>
+      </form>
+    </Modal>
+  </AuthenticatedLayout>
+</template>
