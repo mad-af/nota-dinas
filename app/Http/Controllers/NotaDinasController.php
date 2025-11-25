@@ -89,7 +89,7 @@ class NotaDinasController extends Controller
         ]);
     }
 
-    public function signLampiran($lampiranId)
+    public function signLampiran(Request $request, $lampiranId)
     {
         $lampiran = \App\Models\NotaLampiran::findOrFail($lampiranId);
         $this->authorizeLampiranOrAbort($lampiran);
@@ -99,22 +99,45 @@ class NotaDinasController extends Controller
             return redirect()->route('nota.lampiran.view', $lampiranId)->with('error', 'Pengguna tidak terautentikasi.');
         }
 
-        $service = app(EsignSignerService::class);
-        $result = $service->signLampiran($user, $lampiran, [
-            'signer_id' => optional($user)->nik,
-            'method' => request('method', default: 'passphrase'),
-            'passphrase' => request('passphrase'),
-            'totp' => request('totp'),
-            'tampilan' => request('tampilan'),
-            'imageBase64' => request('imageBase64'),
-            'page' => request('page'),
-            'originX' => request('originX'),
-            'originY' => request('originY'),
-            'width' => request('width'),
-            'height' => request('height'),
-            'location' => request('location'),
-            'reason' => request('reason'),
+        $data = $request->validate([
+            'method' => ['required', 'in:passphrase,totp'],
+            'passphrase' => ['required_if:method,passphrase'],
+            'totp' => ['required_if:method,totp'],
+            'tampilan' => ['nullable', 'in:VISIBLE,INVISIBLE,VIS,INV'],
+            'imageBase64' => ['nullable', 'string'],
+            'signature_path' => ['nullable', 'string'],
+            'page' => ['nullable', 'integer'],
+            'originX' => ['nullable', 'numeric'],
+            'originY' => ['nullable', 'numeric'],
+            'width' => ['nullable', 'numeric'],
+            'height' => ['nullable', 'numeric'],
+            'tag_koordinat' => ['nullable', 'string'],
+            'location' => ['nullable', 'string'],
+            'reason' => ['nullable', 'string'],
+            'pdfPassword' => ['nullable', 'string'],
         ]);
+
+        $options = [
+            'signer_id' => optional($user)->nik,
+            'method' => $data['method'] ?? 'passphrase',
+            'passphrase' => $data['passphrase'] ?? null,
+            'totp' => $data['totp'] ?? null,
+            'tampilan' => $data['tampilan'] ?? null,
+            'imageBase64' => $data['imageBase64'] ?? null,
+            'signature_path' => $data['signature_path'] ?? null,
+            'page' => $data['page'] ?? null,
+            'originX' => $data['originX'] ?? null,
+            'originY' => $data['originY'] ?? null,
+            'width' => $data['width'] ?? null,
+            'height' => $data['height'] ?? null,
+            'tag_koordinat' => $data['tag_koordinat'] ?? null,
+            'location' => $data['location'] ?? null,
+            'reason' => $data['reason'] ?? null,
+            'pdfPassword' => $data['pdfPassword'] ?? null,
+        ];
+
+        $service = app(EsignSignerService::class);
+        $result = $service->signLampiran($user, $lampiran, $options);
 
         dd($result);
 

@@ -109,21 +109,6 @@ function onResize(...args) {
   updatePercentFromAbs()
 }
 
-function resetBox() {
-  const el = wrapRef.value?.querySelector('canvas') || wrapRef.value
-  const rect = el?.getBoundingClientRect()
-  if (!rect) return
-  const w = Math.round(rect.width * 0.3)
-  const h = Math.round(rect.height * 0.12)
-  absCoord.value = {
-    x: Math.round((rect.width - w) / 2),
-    y: Math.round((rect.height - h) / 2),
-    width: w,
-    height: h,
-  }
-  updatePercentFromAbs()
-}
-
 const form = ref({ consent: false, signer_id: '', method: 'passphrase', tampilan: 'VIS', location: '', reason: '' })
 const signing = ref(false)
 const statusText = ref(props.hasSigned ? 'Sudah ditandatangani' : 'Belum ditandatangani')
@@ -178,7 +163,6 @@ async function confirmPassphrase() {
   } finally {
     passphraseInput.value = ''
     passphraseError.value = ''
-    passStrength.value = ''
     if (passInputRef.value) { try { passInputRef.value.value = '' } catch { } }
   }
 }
@@ -208,7 +192,7 @@ async function startSigning(passphrase) {
       passphrase,
       lampiran_id: props.doc.id,
       tampilan: form.value.tampilan || 'VIS',
-      imageBase64: null,
+      signature_path: props.currentUserSignaturePath || null,
       page: currentPage.value,
       originX: absCoord.value.x,
       originY: absCoord.value.y,
@@ -218,7 +202,20 @@ async function startSigning(passphrase) {
       reason: form.value.reason || null,
     }
     await axios.post(route('esign.sign.submit'), payload)
-    await router.post(route('nota.lampiran.sign', props.doc.id), {}, { onFinish: () => { } })
+    const lampiranPayload = {
+      method: 'passphrase',
+      passphrase,
+      tampilan: form.value.tampilan || 'VIS',
+      signature_path: props.currentUserSignaturePath || null,
+      page: currentPage.value,
+      originX: absCoord.value.x,
+      originY: absCoord.value.y,
+      width: absCoord.value.width,
+      height: absCoord.value.height,
+      location: form.value.location || null,
+      reason: form.value.reason || null,
+    }
+    await router.post(route('nota.lampiran.sign', props.doc.id), lampiranPayload, { onFinish: () => { } })
     statusText.value = 'Berhasil ditandatangani'
     flash.value.success = 'Dokumen berhasil ditandatangani.'
   } catch (e) {
@@ -389,7 +386,7 @@ onUnmounted(() => {
               <p class="mt-2 text-sm text-gray-600">Silakan lengkapi NIK dan unggah spesimen tanda tangan pada halaman
                 profil sebelum melakukan TTE.</p>
               <button type="button" @click="goToEsignSetup"
-                class="inline-block px-3 py-2 mt-3 text-sm bg-gray-50 rounded border hover:bg-gray-100">Buka Pengaturan
+                class="text-sm bg-gray-50 rounded border inlin-t-3 hover:bg-gray-100">Buka Pengaturan
                 eSign</button>
             </div>
           </div>
@@ -405,7 +402,7 @@ onUnmounted(() => {
           <input ref="passInputRef" :type="showPass ? 'text' : 'password'" :value="passphraseInput"
             @input="(e) => { passphraseInput = e.target.value }" @focus="(e) => { e.target.readOnly = false }"
             class="px-2 py-2 pr-16 w-full text-sm rounded border" placeholder="Passphrase" autocomplete="new-password"
-            autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+             autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
           <button type="button" @click="showPass = !showPass"
             class="absolute right-2 top-1/2 px-2 py-1 text-xs bg-white rounded border -translate-y-1/2 hover:bg-gray-50">
             {{ showPass ? 'Hide' : 'Show' }}
