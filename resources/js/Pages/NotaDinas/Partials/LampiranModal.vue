@@ -15,36 +15,27 @@
           v-for="(file, index) in lampiranList"
           :key="index"
           class="mb-2 cursor-pointer text-blue-600 hover:underline"
-          @click="openFilePreview(file)"
+          @click="navigateToLampiran(file)"
         >
           {{ file.name }}
           <span class="text-gray-500 text-xs"> ({{ formatDate(file.created_at) }})</span>
+          <span v-if="navigatingId === file.id" class="ml-2 text-xs text-gray-500">Mengalihkan…</span>
         </li>
       </ul>
     </div>
   </Modal>
 
-  <!-- Attachment Preview Modal -->
-  <Modal :show="!!selectedFile" @close="closeFilePreview" maxWidth="fullscreen">
-    <div class="h-dvh p-6 flex flex-col">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold">{{ selectedFile?.name }}</h3>
-        <button @click="closeFilePreview">✖</button>
-      </div>
-      <div class="flex-1 overflow-hidden">
-        <iframe 
-          v-if="selectedFile"
-          :src="selectedFile.url" 
-          class="w-full h-full border-0 bg-white" 
-          frameborder="0"
-        />
-      </div>
+  <!-- Navigating overlay -->
+  <Modal :show="isNavigating" @close="() => {}" maxWidth="sm">
+    <div class="p-6 text-center">
+      <p class="text-sm text-gray-600">Mengalihkan ke tampilan dokumen…</p>
     </div>
   </Modal>
 </template>
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
+import { router } from '@inertiajs/vue3'
 import Modal from '@/Components/Modal.vue'
 
 const props = defineProps({
@@ -64,6 +55,8 @@ const lampiranList = ref([])
 const loading = ref(false)
 const error = ref(null)
 const selectedFile = ref(null)
+const isNavigating = ref(false)
+const navigatingId = ref(null)
 const lastFetchedNotaId = ref(null)
 
 watch(() => props.show, (newVal) => {
@@ -87,8 +80,17 @@ const closeFilePreview = () => {
   selectedFile.value = null
 }
 
-const openFilePreview = (file) => {
-  selectedFile.value = file
+function navigateToLampiran(file) {
+  if (!file?.id) return
+  isNavigating.value = true
+  navigatingId.value = file.id
+  router.visit(route('nota.lampiran.view', file.id), {
+    onFinish: () => {
+      isNavigating.value = false
+      navigatingId.value = null
+      emit('close')
+    }
+  })
 }
 
 const formatDate = (dateStr) => {

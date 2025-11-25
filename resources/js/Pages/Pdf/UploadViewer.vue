@@ -248,7 +248,7 @@ onUnmounted(() => { if (objectUrl) URL.revokeObjectURL(objectUrl) })
           <div class="mt-4 md:mt-6">
             <div v-if="!pdfUrl" class="p-6 text-sm text-gray-600">Belum ada dokumen. Silakan pilih PDF untuk melihat preview.</div>
             <div v-else class="overflow-auto w-full">
-              <div ref="wrapRef" class="relative inline-block bg-gray-50">
+              <div ref="wrapRef" class="inline-block relative bg-gray-50">
                 <VuePdfEmbed
                   annotation-layer
                   text-layer
@@ -276,18 +276,18 @@ onUnmounted(() => { if (objectUrl) URL.revokeObjectURL(objectUrl) })
                   @dragging="onDrag"
                   @resizing="onResize"
                 >
-                  <div class="w-full h-full bg-green-200/40 border-2 border-green-500"></div>
+                  <div class="w-full h-full border-2 border-green-500 bg-green-200/40"></div>
                 </Vue3DraggableResizable>
               </div>
 
-              <div class="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div class="flex flex-col gap-4 mt-4 md:flex-row md:items-center md:justify-between">
                 <div class="text-sm text-gray-700">
                   <div class="font-semibold">Koordinat (display px):</div>
-                  <pre class="bg-gray-100 p-2 rounded">{{ { x: absCoord.x, y: absCoord.y, width: absCoord.width, height: absCoord.height } }}</pre>
+                  <pre class="p-2 bg-gray-100 rounded">{{ { x: absCoord.x, y: absCoord.y, width: absCoord.width, height: absCoord.height } }}</pre>
                 </div>
                 <div class="text-sm text-gray-700">
                   <div class="font-semibold">Koordinat (% relatif halaman):</div>
-                  <pre class="bg-gray-100 p-2 rounded">{{ { x: +(percentCoord.x.toFixed(4)), y: +(percentCoord.y.toFixed(4)), width: +(percentCoord.width.toFixed(4)), height: +(percentCoord.height.toFixed(4)) } }}</pre>
+                  <pre class="p-2 bg-gray-100 rounded">{{ { x: +(percentCoord.x.toFixed(4)), y: +(percentCoord.y.toFixed(4)), width: +(percentCoord.width.toFixed(4)), height: +(percentCoord.height.toFixed(4)) } }}</pre>
                 </div>
                 <div class="flex gap-2">
                   <button @click="resetBox" class="px-4 py-2 text-sm font-medium text-white bg-yellow-500 rounded hover:bg-yellow-600">Reset Posisi</button>
