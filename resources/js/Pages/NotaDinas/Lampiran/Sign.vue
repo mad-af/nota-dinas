@@ -21,8 +21,8 @@ const props = defineProps({
   currentUserNik: { type: String, default: '' },
 })
 
-const flash = ref({ success: null, error: null })
-const clearFlash = () => { flash.value = { success: null, error: null } }
+const flash = ref({ success: null, error: null, info: null })
+const clearFlash = () => { flash.value = { success: null, error: null, info: null } }
 
 const pdfUrl = ref(props.doc?.url || '')
 const currentPage = ref(1)
@@ -109,7 +109,7 @@ function onResize(...args) {
   updatePercentFromAbs()
 }
 
-const form = ref({ consent: false, signer_id: '', method: 'passphrase', tampilan: 'VIS', location: '', reason: '' })
+const form = ref({ signer_id: '', method: 'passphrase', tampilan: 'VIS', location: '', reason: '' })
 const signing = ref(false)
 const statusText = ref(props.hasSigned ? 'Sudah ditandatangani' : 'Belum ditandatangani')
 const pollingActive = ref(false)
@@ -167,57 +167,36 @@ async function confirmPassphrase() {
   }
 }
 
-async function getFileBase64FromUrl(url) {
-  const resp = await axios.get(url, { responseType: 'arraybuffer' })
-  const bytes = new Uint8Array(resp.data)
-  let binary = ''
-  const chunk = 0x8000
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk))
-  }
-  return btoa(binary)
-}
-
 async function startSigning(passphrase) {
   if (!validate()) return
   signing.value = true
-  flash.value = { success: null, error: null }
+  clearFlash()
   statusText.value = 'Memproses penandatanganan…'
   try {
-    const fileBase64 = await getFileBase64FromUrl(pdfUrl.value)
-    const payload = {
-      file_base64: fileBase64,
-      signer_id: form.value.signer_id || null,
-      method: 'passphrase',
-      passphrase,
-      lampiran_id: props.doc.id,
-      tampilan: form.value.tampilan || 'VIS',
-      signature_path: props.currentUserSignaturePath || null,
-      page: currentPage.value,
-      originX: absCoord.value.x,
-      originY: absCoord.value.y,
-      width: absCoord.value.width,
-      height: absCoord.value.height,
-      location: form.value.location || null,
-      reason: form.value.reason || null,
-    }
-    await axios.post(route('esign.sign.submit'), payload)
     const lampiranPayload = {
       method: 'passphrase',
       passphrase,
       tampilan: form.value.tampilan || 'VIS',
-      signature_path: props.currentUserSignaturePath || null,
+      signature_path: props.currentUserSignaturePath,
       page: currentPage.value,
       originX: absCoord.value.x,
       originY: absCoord.value.y,
       width: absCoord.value.width,
       height: absCoord.value.height,
-      location: form.value.location || null,
-      reason: form.value.reason || null,
+      location: form.value.location,
+      reason: form.value.reason,
     }
-    await router.post(route('nota.lampiran.sign', props.doc.id), lampiranPayload, { onFinish: () => { } })
-    statusText.value = 'Berhasil ditandatangani'
-    flash.value.success = 'Dokumen berhasil ditandatangani.'
+    const filteredLampiranPayload = Object.fromEntries(Object.entries(lampiranPayload).filter(([_, v]) => v !== null && v !== undefined))
+    await router.post(route('nota.lampiran.sign', props.doc.id), filteredLampiranPayload, {
+      preserveScroll: true,
+      onStart: () => { flash.value.info = 'Dokumen sedang diproses.' },
+      onSuccess: () => {
+        statusText.value = 'Berhasil ditandatangani'
+        flash.value.success = 'Dokumen berhasil ditandatangani.'
+        flash.value.info = null
+      },
+      onError: () => { flash.value.info = null },
+    })
   } catch (e) {
     const msg = e?.response?.data?.error || e?.response?.data?.message || e?.message || 'Gagal proses TTE.'
     flash.value.error = msg
@@ -227,7 +206,6 @@ async function startSigning(passphrase) {
   }
 }
 
-// no OTP flow for passphrase-only mode
 
 async function runPoll() {
   if (!pollingActive.value) return
@@ -285,6 +263,19 @@ onUnmounted(() => {
   <AuthenticatedLayout>
     <SuccessFlash :flash="flash" @clearFlash="clearFlash" />
     <ErrorFlash :flash="flash" @clearFlash="clearFlash" />
+    <Transition appear name="fade">
+      <div v-if="flash.info" class="mx-2 sm:mx-0">
+        <div class="p-4 bg-blue-50 rounded-md">
+          <div class="flex items-start">
+            <svg class="flex-shrink-0 w-5 h-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>
+            <div class="flex-1 ml-3 text-sm text-blue-700">{{ flash.info }}</div>
+            <button @click="clearFlash" class="p-1 ml-4 rounded-full hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-blue-50" aria-label="Close notification">
+              <svg class="w-5 h-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <div class="pt-6 mx-2 sm:pt-24 sm:px-2">
       <div class="mx-auto space-y-6 max-w-6xl sm:px-6 lg:px-6">
