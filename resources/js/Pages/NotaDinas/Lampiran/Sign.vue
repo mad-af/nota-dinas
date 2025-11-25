@@ -37,7 +37,7 @@
                     <VuePdfEmbed annotation-layer text-layer :source="pdfUrl" :page="currentPage" :scale="scale"
                       @loaded="onLoaded" @loading-failed="onLoadingFailed" @rendering-failed="onRenderingFailed"
                       @rendered="onRendered" class="min-h-[80vh] w-full h-full" />
-                    <Vue3DraggableResizable v-if="viewerReady" :x="absCoord.x" :y="absCoord.y" :w="absCoord.width"
+                    <Vue3DraggableResizable v-if="viewerReady && form.tampilan === 'VIS'" :x="absCoord.x" :y="absCoord.y" :w="absCoord.width"
                       :h="absCoord.height" :parent="true" :draggable="!!pdfUrl" :resizable="!!pdfUrl" :active="true"
                       class="absolute" @dragging="onDrag" @resizing="onResize">
                       <div class="w-full h-full border-2 border-indigo-500 bg-indigo-200/40"></div>
@@ -48,24 +48,38 @@
             </div>
           </div>
 
-          <div class="md:w-96 shrink-0">
+          <div class="md:w-96 shrink-0" v-if="isEsignReady">
             <div class="p-4 bg-white rounded-md border">
               <h3 class="text-base font-semibold text-gray-900">Form TTE</h3>
               <p class="mt-1 text-sm text-gray-600">Masukkan data yang diminta oleh layanan eSign.</p>
               <div class="mt-4 space-y-3">
-                <label class="flex gap-2 items-center text-sm">
-                  <input type="checkbox" v-model="form.consent" />
-                  <span>Saya menyetujui untuk menandatangani dokumen ini.</span>
-                </label>
-                <div>
-                  <label class="text-sm text-gray-700">Kode OTP</label>
-                  <input type="text" v-model="form.otp" class="px-2 py-1 mt-1 w-full text-sm rounded border"
-                    placeholder="6 digit" maxlength="6" />
+                <div class="grid gap-3">
+                  <div>
+                    <label class="text-sm text-gray-700">NIK Penanda Tangan</label>
+                    <input type="text" v-model="form.signer_id" readonly class="px-2 py-1 mt-1 w-full text-sm bg-gray-50 text-gray-600 border border-gray-300 rounded cursor-not-allowed" placeholder="Diambil dari profil" />
+                  </div>
+                  <div>
+                    <label class="text-sm text-gray-700">Passphrase</label>
+                    <input type="password" v-model="form.passphrase" class="px-2 py-1 mt-1 w-full text-sm rounded border" placeholder="Masukkan passphrase" />
+                  </div>
+                  <div>
+                    <label class="text-sm text-gray-700">Tampilan</label>
+                    <select v-model="form.tampilan" class="px-2 py-1 mt-1 w-full text-sm rounded border">
+                      <option value="VIS" v-if="!!props.currentUserSignaturePath">Tampilkan Tanda Tangan</option>
+                      <option value="INV">Sembunyikan Tanda Tangan</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-sm text-gray-700">Lokasi</label>
+                    <input type="text" v-model="form.location" class="px-2 py-1 mt-1 w-full text-sm rounded border" placeholder="Opsional" />
+                  </div>
+                  <div>
+                    <label class="text-sm text-gray-700">Alasan</label>
+                    <input type="text" v-model="form.reason" class="px-2 py-1 mt-1 w-full text-sm rounded border" placeholder="Opsional" />
+                  </div>
                 </div>
                 <div class="flex gap-2 items-center">
-                  <button @click="startSigning"
-                    class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700"
-                    :disabled="signing">
+                  <button @click="startSigning" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700" :disabled="signing">
                     <span v-if="!signing">Mulai TTE</span>
                     <span v-else>Memproses…</span>
                   </button>
@@ -73,21 +87,17 @@
                 </div>
                 <div class="mt-2 text-xs text-gray-500">
                   Posisi tanda tangan (%):
-                  {{ {
-                    x: +(percentCoord.x.toFixed(4)), y: +(percentCoord.y.toFixed(4)), width:
-                      +(percentCoord.width.toFixed(4)), height: +(percentCoord.height.toFixed(4)) } }}
+                  {{ { x: +(percentCoord.x.toFixed(4)), y: +(percentCoord.y.toFixed(4)), width: +(percentCoord.width.toFixed(4)), height: +(percentCoord.height.toFixed(4)) } }}
                 </div>
               </div>
-              <div class="mt-6">
-                <h4 class="text-sm font-semibold text-gray-900">Penanda Tangan</h4>
-                <ul class="mt-2 space-y-2 text-sm">
-                  <li v-for="s in signers" :key="s.id" class="flex justify-between items-center">
-                    <span>{{ s.name }}</span>
-                    <span class="text-xs text-green-600">Sudah TTE</span>
-                  </li>
-                  <li v-if="signers.length === 0" class="text-gray-500">Belum ada penanda tangan.</li>
-                </ul>
-              </div>
+              
+            </div>
+          </div>
+          <div v-else class="md:w-96 shrink-0">
+            <div class="p-4 bg-white rounded-md border">
+              <h3 class="text-base font-semibold text-gray-900">Aktivasi eSign Diperlukan</h3>
+              <p class="mt-2 text-sm text-gray-600">Silakan lengkapi NIK dan unggah spesimen tanda tangan pada halaman profil sebelum melakukan TTE.</p>
+              <button type="button" @click="goToEsignSetup" class="inline-block mt-3 px-3 py-2 text-sm rounded border bg-gray-50 hover:bg-gray-100">Buka Pengaturan eSign</button>
             </div>
           </div>
         </div>
@@ -98,7 +108,7 @@
 
 <script setup>
 import { Head, router } from '@inertiajs/vue3'
-import { ref, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import SuccessFlash from '@/Components/SuccessFlash.vue'
@@ -114,6 +124,8 @@ const props = defineProps({
   signers: { type: Array, default: () => [] },
   hasSigned: { type: Boolean, default: false },
   currentUserId: { type: String, default: '' },
+  currentUserSignaturePath: { type: String, default: '' },
+  currentUserNik: { type: String, default: '' },
 })
 
 const flash = ref({ success: null, error: null })
@@ -128,6 +140,9 @@ const wrapRef = ref(null)
 const viewerReady = ref(false)
 const absCoord = ref({ x: 50, y: 50, width: 200, height: 80 })
 const percentCoord = ref({ x: 0, y: 0, width: 0, height: 0 })
+
+const isEsignReady = computed(() => !!props.currentUserNik)
+function goToEsignSetup() { router.visit(route('profile.edit') + '#esign-setup') }
 
 function onLoaded(doc) { totalPages.value = doc?.numPages || 0 }
 function onLoadingFailed() { flash.value.error = 'Gagal memuat dokumen.' }
@@ -211,21 +226,32 @@ function resetBox() {
   updatePercentFromAbs()
 }
 
-const form = ref({ consent: false, otp: '' })
+const form = ref({ consent: false, signer_id: '', method: 'passphrase', passphrase: '', tampilan: 'VIS', location: '', reason: '' })
 const signing = ref(false)
 const statusText = ref(props.hasSigned ? 'Sudah ditandatangani' : 'Belum ditandatangani')
 let poller = null
 
 function validate() {
-  if (!form.value.consent) {
-    flash.value.error = 'Anda harus menyetujui untuk melanjutkan TTE.'
-    return false
-  }
-  if (!/^\d{6}$/.test(form.value.otp)) {
-    flash.value.error = 'Kode OTP harus 6 digit angka.'
+  if (!form.value.consent) { flash.value.error = 'Anda harus menyetujui untuk melanjutkan TTE.'; return false }
+  if (!form.value.signer_id) { flash.value.error = 'NIK penanda tangan wajib diisi.'; return false }
+  if (!form.value.passphrase) { flash.value.error = 'Passphrase wajib diisi.'; return false }
+  if (form.value.tampilan === 'VIS' && !props.currentUserSignaturePath) {
+    flash.value.error = 'Spesimen tanda tangan belum tersedia. Gunakan tampilan INV.'
+    form.value.tampilan = 'INV'
     return false
   }
   return true
+}
+
+async function getFileBase64FromUrl(url) {
+  const resp = await axios.get(url, { responseType: 'arraybuffer' })
+  const bytes = new Uint8Array(resp.data)
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
 }
 
 async function startSigning() {
@@ -234,27 +260,36 @@ async function startSigning() {
   flash.value = { success: null, error: null }
   statusText.value = 'Memproses penandatanganan…'
   try {
-    await router.post(route('nota.lampiran.sign', props.doc.id), {
-      placement: {
-        percent: percentCoord.value,
-        absolute: absCoord.value,
-        page: currentPage.value,
-        scale: scale.value,
-      },
-      otp: form.value.otp,
-    }, {
-      onFinish: () => { },
-    })
+    const fileBase64 = await getFileBase64FromUrl(pdfUrl.value)
+    const payload = {
+      file_base64: fileBase64,
+      signer_id: form.value.signer_id || null,
+      method: 'passphrase',
+      passphrase: form.value.passphrase,
+      tampilan: form.value.tampilan || 'VIS',
+      imageBase64: null,
+      page: currentPage.value,
+      originX: absCoord.value.x,
+      originY: absCoord.value.y,
+      width: absCoord.value.width,
+      height: absCoord.value.height,
+      location: form.value.location || null,
+      reason: form.value.reason || null,
+    }
+    await axios.post(route('esign.sign.submit'), payload)
+    await router.post(route('nota.lampiran.sign', props.doc.id), {}, { onFinish: () => { } })
     statusText.value = 'Berhasil ditandatangani'
     flash.value.success = 'Dokumen berhasil ditandatangani.'
   } catch (e) {
-    const msg = e?.response?.data?.message || e?.message || 'Gagal proses TTE.'
+    const msg = e?.response?.data?.error || e?.response?.data?.message || e?.message || 'Gagal proses TTE.'
     flash.value.error = msg
     statusText.value = 'Gagal, coba lagi.'
   } finally {
     signing.value = false
   }
 }
+
+// no OTP flow for passphrase-only mode
 
 async function pollStatus() {
   try {
@@ -267,6 +302,11 @@ async function pollStatus() {
 }
 
 function onWindowResize() { updateAbsFromPercent() }
-onMounted(() => { poller = setInterval(pollStatus, 2000); window.addEventListener('resize', onWindowResize) })
+onMounted(() => {
+  poller = setInterval(pollStatus, 2000)
+  window.addEventListener('resize', onWindowResize)
+  if (!props.currentUserSignaturePath) { form.value.tampilan = 'INV' }
+  if (props.currentUserNik) { form.value.signer_id = props.currentUserNik }
+})
 onUnmounted(() => { if (poller) clearInterval(poller); window.removeEventListener('resize', onWindowResize) })
 </script>

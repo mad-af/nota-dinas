@@ -123,6 +123,8 @@ class NotaDinasController extends Controller
             'signers' => $signers,
             'hasSigned' => $hasSigned,
             'currentUserId' => $currentUserId,
+            'currentUserSignaturePath' => optional(Auth::user())->signature_path,
+            'currentUserNik' => optional(Auth::user())->nik,
         ]);
     }
 

@@ -22,10 +22,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::patch('/profile/esign', [ProfileController::class, 'updateEsign'])->name('profile.esign.update');
-    Route::get('/nota-dinas/lampiran/{lampiran}', [\App\Http\Controllers\NotaDinasController::class, 'viewLampiran'])->name('nota.lampiran.view');
-    Route::post('/nota-dinas/lampiran/{lampiran}/sign', [\App\Http\Controllers\NotaDinasController::class, 'signLampiran'])->name('nota.lampiran.sign');
-    Route::get('/nota-dinas/lampiran/{lampiran}/tanda-tangan', [\App\Http\Controllers\NotaDinasController::class, 'signPage'])->name('nota.lampiran.sign.page');
-    Route::get('/nota-dinas/lampiran/{lampiran}/status', [\App\Http\Controllers\NotaDinasController::class, 'lampiranStatus'])->name('nota.lampiran.status');
+    Route::get('/nota-dinas/lampiran/{lampiran}', [NotaDinasController::class, 'viewLampiran'])->name('nota.lampiran.view');
+    Route::post('/nota-dinas/lampiran/{lampiran}/sign', [NotaDinasController::class, 'signLampiran'])->name('nota.lampiran.sign');
+    Route::get('/nota-dinas/lampiran/{lampiran}/tanda-tangan', [NotaDinasController::class, 'signPage'])->name('nota.lampiran.sign.page');
+    Route::get('/nota-dinas/lampiran/{lampiran}/status', [NotaDinasController::class, 'lampiranStatus'])->name('nota.lampiran.status');
     Route::post('/nota-dinas/{nota}/kirim', [NotaPengirimanController::class, 'store'])->name('nota.pengiriman.store');
     Route::get('/nota/lampiran/{tipe}/{id}', [NotaDinasController::class, 'getLampiranHistori']);
     Route::resource('nota-dinas', NotaDinasController::class);

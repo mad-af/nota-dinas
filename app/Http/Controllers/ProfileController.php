@@ -75,18 +75,22 @@ class ProfileController extends Controller
 
     public function updateEsign(EsignActivationRequest $request): RedirectResponse
     {
-        $user = $request->user();
-        $validated = $request->validated();
+        try {
+            $user = $request->user();
+            $validated = $request->validated();
 
-        $user->nik = $validated['nik'];
+            $user->nik = $validated['nik'];
 
-        if ($request->hasFile('signature')) {
-            $path = $request->file('signature')->store('signatures', 'public');
-            $user->signature_path = $path;
+            if ($request->hasFile('signature')) {
+                $path = $request->file('signature')->store('signatures', 'public');
+                $user->signature_path = $path;
+            }
+
+            $user->save();
+
+            return Redirect::route('profile.edit')->with('status', 'esign-updated');
+        } catch (\Throwable $e) {
+            return Redirect::back()->withErrors(['nik' => 'Gagal menyimpan data eSign.'])->with('error', $e->getMessage());
         }
-
-        $user->save();
-
-        return Redirect::route('profile.edit')->with('status', 'esign-updated');
     }
 }
