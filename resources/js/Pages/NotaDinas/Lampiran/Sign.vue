@@ -206,6 +206,7 @@ async function startSigning(passphrase) {
       signer_id: form.value.signer_id || null,
       method: 'passphrase',
       passphrase,
+      lampiran_id: props.doc.id,
       tampilan: form.value.tampilan || 'VIS',
       imageBase64: null,
       page: currentPage.value,

@@ -4,6 +4,9 @@
 namespace Tests\Feature\Esign;
 
 use App\Models\User;
+use App\Models\Skpd;
+use App\Models\NotaDinas;
+use App\Models\NotaLampiran;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -148,5 +151,44 @@ class SignWorkflowTest extends TestCase
         $this->assertTrue(Storage::exists($paths[0]));
         $this->assertTrue(Storage::exists($paths[1]));
         $this->assertNotEquals($paths[0], $paths[1]);
+    }
+
+    public function test_submit_sign_marks_lampiran_when_lampiran_id_provided(): void
+    {
+        $user = User::factory()->create(['nik' => '1234567890123456']);
+        $this->actingAs($user);
+
+        Storage::fake();
+        Http::fake([
+            '*/api/v2/user/check/status' => Http::response(['status' => 'ISSUE'], 200),
+            '*/api/v2/sign/pdf' => Http::response(['file' => [$this->makeBase64Pdf()]], 200),
+        ]);
+
+        $skpd = Skpd::create(['nama_skpd' => 'SKPD T', 'status' => true]);
+        $nota = NotaDinas::create([
+            'skpd_id' => $skpd->id,
+            'nomor_nota' => 'N-777',
+            'perihal' => 'Test Lampiran',
+            'tanggal_pengajuan' => now(),
+            'status' => 'proses',
+            'tahap_saat_ini' => 'skpd',
+        ]);
+        $lampiran = NotaLampiran::create([
+            'nota_dinas_id' => $nota->id,
+            'nama_file' => 'lampiran777.pdf',
+            'path' => 'lampiran_nota/lampiran777.pdf',
+        ]);
+
+        $resp = $this->post(route('esign.sign.submit'), [
+            'file_base64' => $this->makeBase64Pdf(),
+            'signer_id' => '1234567890123456',
+            'method' => 'passphrase',
+            'passphrase' => 'secret',
+            'lampiran_id' => $lampiran->id,
+        ]);
+
+        $resp->assertSessionHas('success');
+        $lampiran = $lampiran->fresh();
+        $this->assertContains((string) $user->id, $lampiran->signature_user_ids ?? []);
     }
 }

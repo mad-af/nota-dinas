@@ -6,6 +6,7 @@ use App\Models\NotaDinas;
 use App\Models\NotaPengiriman;
 use App\Models\NotaPersetujuan;
 use App\Models\User;
+use App\Services\EsignSignerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -92,7 +93,36 @@ class NotaDinasController extends Controller
     {
         $lampiran = \App\Models\NotaLampiran::findOrFail($lampiranId);
         $this->authorizeLampiranOrAbort($lampiran);
-        $userId = (string) Auth::id();
+
+        $user = Auth::user();
+        if (! $user) {
+            return redirect()->route('nota.lampiran.view', $lampiranId)->with('error', 'Pengguna tidak terautentikasi.');
+        }
+
+        $service = app(EsignSignerService::class);
+        $result = $service->signLampiran($user, $lampiran, [
+            'signer_id' => optional($user)->nik,
+            'method' => request('method', default: 'passphrase'),
+            'passphrase' => request('passphrase'),
+            'totp' => request('totp'),
+            'tampilan' => request('tampilan'),
+            'imageBase64' => request('imageBase64'),
+            'page' => request('page'),
+            'originX' => request('originX'),
+            'originY' => request('originY'),
+            'width' => request('width'),
+            'height' => request('height'),
+            'location' => request('location'),
+            'reason' => request('reason'),
+        ]);
+
+        dd($result);
+
+        if (! ($result['success'] ?? false)) {
+            return redirect()->route('nota.lampiran.view', $lampiranId)->with('error', $result['message'] ?? 'Gagal menghubungkan layanan eSign.');
+        }
+
+        $userId = (string) $user->id;
         $ids = $lampiran->signature_user_ids ?? [];
         if (! in_array($userId, $ids, true)) {
             $lampiran->addSignatureUserId($userId)->save();
