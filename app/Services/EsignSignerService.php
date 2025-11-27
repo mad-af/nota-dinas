@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use App\Services\SignatureDocumentService;
 
 class EsignSignerService
 {
@@ -157,7 +156,7 @@ class EsignSignerService
                     'location' => $options['location'] ?? null,
                     'reason' => $options['reason'] ?? null,
                     'pdfPassword' => $options['pdfPassword'] ?? null,
-                ], fn($v) => $v !== null),
+                ], fn ($v) => $v !== null),
             ];
 
             foreach ($signedFiles as $signedBase64) {
@@ -192,10 +191,22 @@ class EsignSignerService
     {
         $svc = app(SignatureDocumentService::class);
         $path = $svc->latestOriginal($lampiran->id) ?: (string) $lampiran->path;
+        $signedExists = false;
+        foreach ($svc->signedVersions($lampiran->id) as $ver) {
+            if ($svc->latestSigned($lampiran->id, $ver)) {
+                $signedExists = true;
+                break;
+            }
+        }
         try {
-            $contents = Storage::disk('local')->get($path);
+            if (! $signedExists) {
+                $absolute = Storage::disk('local')->path($path);
+                $contents = $svc->addElectronicSignatureFooter($absolute);
+            } else {
+                $contents = Storage::disk('local')->get($path);
+            }
         } catch (\Throwable $e) {
-            return ['success' => false, 'message' => 'Gagal membaca file lampiran.'];
+            return ['success' => false, 'message' => 'Gagal membaca/menyiapkan file lampiran.'];
         }
 
         $base64 = base64_encode($contents);
@@ -208,6 +219,7 @@ class EsignSignerService
         }
 
         $options['document_id'] = $lampiran->id;
+
         return $this->signFileBase64($user, $base64, $options);
     }
 }

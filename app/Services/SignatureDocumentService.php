@@ -6,6 +6,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use setasign\Fpdi\Fpdi;
 
 class SignatureDocumentService
 {
@@ -184,5 +185,61 @@ class SignatureDocumentService
         if (! $ok) {
             throw new \InvalidArgumentException('Format file harus PDF.');
         }
+    }
+
+    public function addElectronicSignatureFooter(string $absolutePath): string
+    {
+        if (! is_string($absolutePath) || $absolutePath === '' || ! file_exists($absolutePath)) {
+            throw new \InvalidArgumentException('Path dokumen tidak valid.');
+        }
+        $bytesHead = @file_get_contents($absolutePath, false, null, 0, 5);
+        if ($bytesHead === false || strncmp((string) $bytesHead, '%PDF-', 5) !== 0) {
+            throw new \InvalidArgumentException('Format dokumen tidak valid: PDF diperlukan.');
+        }
+
+        $pdf = new Fpdi('P', 'mm');
+        $pageCount = $pdf->setSourceFile($absolutePath);
+        if ($pageCount < 1) {
+            throw new \RuntimeException('Dokumen kosong atau tidak memiliki halaman.');
+        }
+
+        for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
+            $tplIdx = $pdf->importPage($pageNo);
+            $size = $pdf->getTemplateSize($tplIdx);
+            $pdf->AddPage($size['orientation'] ?? 'P', [$size['width'], $size['height']]);
+            $pdf->useTemplate($tplIdx);
+
+            $pdf->SetAutoPageBreak(false);
+            $pdf->SetMargins(10, 10, 10);
+            $pdf->SetFont('Times', '', 10);
+            $pdf->SetTextColor(80, 80, 80);
+
+            $line1 = 'Dokumen ini telah ditandatangani secara elektronik yang diterbitkan oleh Balai Besar Sertifikasi Elektronik (BSrE), BSSN.';
+            $prefix = 'Untuk verifikasi keaslian tanda tangan elektronik, silahkan unggah dokumen pada laman ';
+            $url = 'https://tte.kominfo.go.id/verifyPDF';
+
+            $usableWidth = ($size['width'] ?? 210) - 20;
+            $yBase = ($size['height'] ?? 297) - 20;
+
+            $pdf->SetXY(10, $yBase);
+            $pdf->MultiCell($usableWidth, 5, utf8_decode($line1), 0, 'C');
+
+            $prefixW = $pdf->GetStringWidth(utf8_decode($prefix));
+            $urlW = $pdf->GetStringWidth($url);
+            $totalW = $prefixW + $urlW;
+            $xStart = (($size['width'] ?? 210) - $totalW) / 2;
+            if ($xStart < 10) { $xStart = 10; }
+            $pdf->SetXY($xStart, $yBase + 5);
+            $pdf->SetTextColor(80, 80, 80);
+            $pdf->SetFont('Times', '', 10);
+            $pdf->Write(5, utf8_decode($prefix));
+            $pdf->SetTextColor(0, 0, 255);
+            $pdf->SetFont('Times', 'U', 10);
+            $pdf->Write(5, $url, $url);
+            $pdf->SetTextColor(80, 80, 80);
+            $pdf->SetFont('Times', '', 10);
+        }
+
+        return $pdf->Output('S');
     }
 }
