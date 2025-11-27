@@ -42,6 +42,43 @@ const safeSignatureUrl = computed(() => {
   return ok && p ? '/storage/' + p : ''
 })
 
+const imgRef = ref(null)
+const imgDims = ref({ width: 0, height: 0 })
+function onImageLoad(e) {
+  try {
+    const t = e?.target
+    const w = Number(t?.naturalWidth) || 0
+    const h = Number(t?.naturalHeight) || 0
+    imgDims.value = { width: w, height: h }
+    applyImageDimsToRect()
+  } catch {
+  }
+}
+function onImageError() {
+  imgDims.value = { width: 0, height: 0 }
+  flash.value.error = 'Gagal memuat gambar tanda tangan.'
+}
+function applyImageDimsToRect() {
+  const nw = imgDims.value.width
+  const nh = imgDims.value.height
+  if (!nw || !nh) return
+  const el = wrapRef.value?.querySelector('canvas') || wrapRef.value
+  const rect = el?.getBoundingClientRect()
+  if (!rect) return
+  let w = nw
+  let h = nh
+  const maxW = Math.max(60, rect.width * 0.3)
+  const maxH = Math.max(40, rect.height * 0.3)
+  const scaleW = maxW / w
+  const scaleH = maxH / h
+  const scale = Math.min(scaleW, scaleH, 1)
+  w = Math.round(w * scale)
+  h = Math.round(h * scale)
+  absCoord.value.width = w
+  absCoord.value.height = h
+  updatePercentFromAbs()
+}
+
 function onLoaded(doc) { totalPages.value = doc?.numPages || 0 }
 function onLoadingFailed() { flash.value.error = 'Gagal memuat dokumen.' }
 function onRenderingFailed() { flash.value.error = 'Gagal merender halaman PDF.' }
@@ -267,10 +304,19 @@ onUnmounted(() => {
       <div v-if="flash.info" class="mx-2 sm:mx-0">
         <div class="p-4 bg-blue-50 rounded-md">
           <div class="flex items-start">
-            <svg class="flex-shrink-0 w-5 h-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>
+            <svg class="flex-shrink-0 w-5 h-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none"
+              viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+            </svg>
             <div class="flex-1 ml-3 text-sm text-blue-700">{{ flash.info }}</div>
-            <button @click="clearFlash" class="p-1 ml-4 rounded-full hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-blue-50" aria-label="Close notification">
-              <svg class="w-5 h-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            <button @click="clearFlash"
+              class="p-1 ml-4 rounded-full hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-blue-50"
+              aria-label="Close notification">
+              <svg class="w-5 h-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
         </div>
@@ -312,8 +358,8 @@ onUnmounted(() => {
                     <Vue3DraggableResizable v-if="viewerReady && form.tampilan === 'VIS'" :x="absCoord.x"
                       :y="absCoord.y" :w="absCoord.width" :h="absCoord.height" :parent="true" :draggable="!!pdfUrl"
                       :resizable="!!pdfUrl" :active="true" class="absolute" @dragging="onDrag" @resizing="onResize">
-                      <img v-if="safeSignatureUrl" :src="safeSignatureUrl" class="object-contain w-full h-full" />
-                      <div v-else class="w-full h-full border-2 border-indigo-500 bg-indigo-200/40"></div>
+                      <img v-if="safeSignatureUrl" :src="safeSignatureUrl" class="object-contain w-full h-full"
+                        ref="imgRef" @load="onImageLoad" @error="onImageError" />
                     </Vue3DraggableResizable>
                   </div>
                 </div>
@@ -365,7 +411,8 @@ onUnmounted(() => {
                   Posisi tanda tangan (%):
                   {{ {
                     x: +(percentCoord.x.toFixed(4)), y: +(percentCoord.y.toFixed(4)), width:
-                      +(percentCoord.width.toFixed(4)), height: +(percentCoord.height.toFixed(4)) } }}
+                      +(percentCoord.width.toFixed(4)), height: +(percentCoord.height.toFixed(4))
+                  } }}
                 </div>
               </div>
 
@@ -386,14 +433,15 @@ onUnmounted(() => {
     </div>
     <!-- Passphrase Modal -->
     <Modal :show="showPassphraseModal" @close="closePassphraseModal">
-      <form autocomplete="off" class="p-6 space-y-4" >
+      <form autocomplete="off" class="p-6 space-y-4">
         <h3 class="text-base font-semibold text-gray-900">Masukkan Passphrase</h3>
         <p class="text-xs text-gray-600">Passphrase tidak disimpan. Hindari penggunaan yang lemah.</p>
         <div class="relative">
-          <input ref="passInputRef" :type="showPass ? 'text' : 'password'" :value="passphraseInput"
+          <input ref="passInputRef" type="text" :value="passphraseInput"
             @input="(e) => { passphraseInput = e.target.value }" @focus="(e) => { e.target.readOnly = false }"
-            class="px-2 py-2 pr-16 w-full text-sm rounded border" placeholder="Passphrase" autocomplete="new-password"
-             autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
+            :class="['px-2 py-2 pr-16 w-full text-sm rounded border', showPass ? '' : 'masked']"
+            placeholder="Passphrase" autocomplete="new-password" autocapitalize="off" autocorrect="off"
+            spellcheck="false" data-lpignore="true" data-1p-ignore="true" />
           <button type="button" @click="showPass = !showPass"
             class="absolute right-2 top-1/2 px-2 py-1 text-xs bg-white rounded border -translate-y-1/2 hover:bg-gray-50">
             {{ showPass ? 'Hide' : 'Show' }}
@@ -410,3 +458,10 @@ onUnmounted(() => {
     </Modal>
   </AuthenticatedLayout>
 </template>
+
+<style>
+.masked {
+  -webkit-text-security: disc;
+  /* atau circle, square */
+}
+</style>

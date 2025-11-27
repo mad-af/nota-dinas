@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\NotaDinas;
+use App\Models\NotaLampiran;
 use App\Models\NotaPengiriman;
 use App\Models\NotaPersetujuan;
 use App\Models\User;
@@ -66,7 +67,7 @@ class NotaDinasController extends Controller
 
     public function viewLampiran($lampiranId)
     {
-        $lampiran = \App\Models\NotaLampiran::findOrFail($lampiranId);
+        $lampiran = NotaLampiran::findOrFail($lampiranId);
         $this->authorizeLampiranOrAbort($lampiran);
         $ids = array_map('strval', $lampiran->signature_user_ids ?? []);
         $signers = User::whereIn('id', $ids)->select('id', 'name')->get()->map(function ($u) {
@@ -91,12 +92,18 @@ class NotaDinasController extends Controller
 
     public function signLampiran(Request $request, $lampiranId)
     {
-        $lampiran = \App\Models\NotaLampiran::findOrFail($lampiranId);
+        $lampiran = NotaLampiran::findOrFail($lampiranId);
         $this->authorizeLampiranOrAbort($lampiran);
-
+        $ids = array_map('strval', $lampiran->signature_user_ids ?? []);
         $user = Auth::user();
         if (! $user) {
             return redirect()->route('nota.lampiran.view', $lampiranId)->with('error', 'Pengguna tidak terautentikasi.');
+        }
+
+        $currentUserId = (string) (Auth::id());
+        $hasSigned = in_array($currentUserId, $ids, true);
+        if ($hasSigned) {
+            return redirect()->route('nota.lampiran.view', $lampiran->id);
         }
 
         $data = $request->validate([
@@ -139,8 +146,6 @@ class NotaDinasController extends Controller
         $service = app(EsignSignerService::class);
         $result = $service->signLampiran($user, $lampiran, $options);
 
-        dd($result);
-
         if (! ($result['success'] ?? false)) {
             return redirect()->route('nota.lampiran.view', $lampiranId)->with('error', $result['message'] ?? 'Gagal menghubungkan layanan eSign.');
         }
@@ -156,7 +161,7 @@ class NotaDinasController extends Controller
 
     public function signPage($lampiranId)
     {
-        $lampiran = \App\Models\NotaLampiran::findOrFail($lampiranId);
+        $lampiran = NotaLampiran::findOrFail($lampiranId);
         $this->authorizeLampiranOrAbort($lampiran);
         $ids = array_map('strval', $lampiran->signature_user_ids ?? []);
         $signers = User::whereIn('id', $ids)->select('id', 'name')->get()->map(function ($u) {
@@ -184,7 +189,7 @@ class NotaDinasController extends Controller
         ]);
     }
 
-    protected function authorizeLampiranOrAbort(\App\Models\NotaLampiran $lampiran): void
+    protected function authorizeLampiranOrAbort(NotaLampiran $lampiran): void
     {
         $user = Auth::user();
         if (! $user) {
@@ -230,7 +235,7 @@ class NotaDinasController extends Controller
 
     public function lampiranStatus($lampiranId)
     {
-        $lampiran = \App\Models\NotaLampiran::findOrFail($lampiranId);
+        $lampiran = NotaLampiran::findOrFail($lampiranId);
         $this->authorizeLampiranOrAbort($lampiran);
         $ids = array_map('strval', $lampiran->signature_user_ids ?? []);
         $currentUserId = (string) (Auth::id());
