@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EsignController;
+use App\Http\Controllers\SignatureDocumentController;
 use App\Http\Controllers\NotaDinasController;
 use App\Http\Controllers\NotaPengirimanController;
 use App\Http\Controllers\NotaPersetujuanController;
@@ -40,6 +41,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/esign/sign', [EsignController::class, 'showForm'])->name('esign.sign.show');
     Route::post('/esign/sign', [EsignController::class, 'submitSign'])->name('esign.sign.submit');
     Route::post('/esign/get-totp', [EsignController::class, 'requestTotp'])->name('esign.totp.request');
+
+    Route::post('/documents/{lampiran}/original', [SignatureDocumentController::class, 'uploadOriginal'])->name('documents.original.upload');
+    Route::post('/documents/{lampiran}/signed', [SignatureDocumentController::class, 'uploadSigned'])->name('documents.signed.upload');
+    Route::get('/documents/{lampiran}/download', [SignatureDocumentController::class, 'download'])->name('documents.download');
+    Route::get('/documents/{lampiran}/manifest', [SignatureDocumentController::class, 'manifest'])->name('documents.manifest');
+    Route::get('/documents/{lampiran}/versions', [SignatureDocumentController::class, 'versions'])->name('documents.versions');
     Route::post('/esign/verify', [EsignController::class, 'verifyPdf'])->name('esign.verify');
     Route::get('/esign/download/{filename}', [EsignController::class, 'downloadSigned'])->name('esign.download');
 

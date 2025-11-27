@@ -16,23 +16,30 @@ class NotaLampiran extends Model
         'nota_pengiriman_id',
         'nama_file',
         'path',
-        'signature_user_ids',
     ];
 
-    protected $casts = [
-        'signature_user_ids' => 'array',
-    ];
-
-    public function addSignatureUserId($userId)
+    public function signatures()
     {
-        $signatures = $this->signature_user_ids ?? [];
-        $uid = (string) $userId;
-        if (! in_array($uid, $signatures, true)) {
-            $signatures[] = $uid;
-            $this->signature_user_ids = $signatures;
+        return $this->hasMany(NotaLampiranSignature::class);
+    }
+
+    public function addSignatureUserId($userId, $path)
+    {
+        $uid = (int) $userId;
+        $exists = $this->signatures()->where('user_id', $uid)->exists();
+        if (! $exists) {
+            $this->signatures()->create([
+                'user_id' => $uid,
+                'path' => $path,
+            ]);
         }
 
         return $this;
+    }
+
+    public function getSignatureUserIdsAttribute()
+    {
+        return $this->signatures()->pluck('user_id')->map(fn ($id) => (string) $id)->toArray();
     }
 
     /**
