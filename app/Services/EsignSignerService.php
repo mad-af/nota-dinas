@@ -50,8 +50,10 @@ class EsignSignerService
             } catch (\Throwable $e) {
             }
         }
-        $originX = isset($options['originX']) ? ($options['originX'] - 10) : 0;
-        $originY = isset($options['originY']) ? ($options['originY'] - 10) : 0;
+        $originX = isset($options['originX']) ? ($options['originX']*0.9) : 0;
+        $originY = isset($options['originY']) ? ($options['originY']*0.9) : 0;
+        $width = isset($options['width']) ? ($options['width']*0.9) : 200;
+        $height = isset($options['height']) ? ($options['height']*0.9) : 100;
         $signatureProperties = [
             array_filter([
                 'tampilan' => $tampilan,
@@ -59,8 +61,8 @@ class EsignSignerService
                 'page' => $options['page'] ?? 1,
                 'originX' => $originX,
                 'originY' => $originY,
-                'width' => $options['width'] ?? 200,
-                'height' => $options['height'] ?? 100,
+                'width' => $width,
+                'height' => $height,
                 'tag_koordinat' => $options['tag_koordinat'] ?? null,
                 'location' => $options['location'] ?? null,
                 'reason' => $options['reason'] ?? null,
@@ -149,8 +151,8 @@ class EsignSignerService
                     'page' => $options['page'] ?? null,
                     'originX' => $originX,
                     'originY' => $originY,
-                    'width' => $options['width'] ?? null,
-                    'height' => $options['height'] ?? null,
+                    'width' => $width,
+                    'height' => $height,
                     'tag_koordinat' => $options['tag_koordinat'] ?? null,
                     'location' => $options['location'] ?? null,
                     'reason' => $options['reason'] ?? null,

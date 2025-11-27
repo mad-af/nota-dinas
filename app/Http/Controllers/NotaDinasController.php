@@ -114,6 +114,9 @@ class NotaDinasController extends Controller
 
     public function signLampiran(Request $request, $lampiranId)
     {
+        try {
+            //code...
+        
         $lampiran = NotaLampiran::findOrFail($lampiranId);
         $this->authorizeLampiranOrAbort($lampiran);
         $ids = array_map('strval', $lampiran->signature_user_ids ?? []);
@@ -145,6 +148,7 @@ class NotaDinasController extends Controller
             'reason' => ['nullable', 'string'],
             'pdfPassword' => ['nullable', 'string'],
         ]);
+        // dd($data);
 
         $options = [
             'signer_id' => optional($user)->nik,
@@ -184,6 +188,10 @@ class NotaDinasController extends Controller
         }
 
         return redirect()->route('nota.lampiran.view', $lampiranId)->with('success', 'Dokumen berhasil ditandatangani.');
+    } catch (\Throwable $th) {
+        dd($th);
+            //throw $th;
+        }
     }
 
     public function signPage($lampiranId)
