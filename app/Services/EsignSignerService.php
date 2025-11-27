@@ -50,8 +50,8 @@ class EsignSignerService
             } catch (\Throwable $e) {
             }
         }
-        $originX = isset($options['originX']) ? ($options['originX'] - 33) : 0;
-        $originY = isset($options['originY']) ? ($options['originY'] - 33) : 0;
+        $originX = isset($options['originX']) ? ($options['originX'] - 10) : 0;
+        $originY = isset($options['originY']) ? ($options['originY'] - 10) : 0;
         $signatureProperties = [
             array_filter([
                 'tampilan' => $tampilan,

@@ -11,6 +11,7 @@ use App\Services\EsignSignerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -75,10 +76,31 @@ class NotaDinasController extends Controller
         })->values();
         $currentUserId = (string) (Auth::id());
         $hasSigned = in_array($currentUserId, $ids, true);
+        $latestSignature = $lampiran->signatures()->orderBy('created_at', 'desc')->first();
+        $useSigned = false;
+        if ($latestSignature) {
+            $path = (string) $latestSignature->path;
+            if ($path && Storage::disk('local')->exists($path)) {
+                $useSigned = true;
+                Log::info('nota.lampiran.view.use_signed', ['lampiran_id' => $lampiran->id, 'path' => $path]);
+            } else {
+                Log::warning('nota.lampiran.view.missing_signed', ['lampiran_id' => $lampiran->id, 'path' => $path]);
+            }
+        }
+        if (! $useSigned) {
+            $origPath = (string) $lampiran->path;
+            if ($origPath && Storage::disk('local')->exists($origPath)) {
+                Log::info('nota.lampiran.view.use_original', ['lampiran_id' => $lampiran->id, 'path' => $origPath]);
+            } else {
+                Log::warning('nota.lampiran.view.missing_original', ['lampiran_id' => $lampiran->id, 'path' => $origPath]);
+            }
+        }
         $doc = [
             'id' => $lampiran->id,
             'name' => $lampiran->nama_file,
-            'url' => route('documents.download', ['lampiran' => $lampiran->id, 'type' => 'original']),
+            'url' => $useSigned
+                ? route('documents.download', ['lampiran' => $lampiran->id, 'type' => 'signed', 'version' => 'v1'])
+                : route('documents.download', ['lampiran' => $lampiran->id, 'type' => 'original']),
             'nota_dinas_id' => $lampiran->nota_dinas_id,
         ];
 
@@ -177,10 +199,31 @@ class NotaDinasController extends Controller
         if ($hasSigned) {
             return redirect()->route('nota.lampiran.view', $lampiran->id);
         }
+        $latestSignature = $lampiran->signatures()->orderBy('created_at', 'desc')->first();
+        $useSigned = false;
+        if ($latestSignature) {
+            $path = (string) $latestSignature->path;
+            if ($path && Storage::disk('local')->exists($path)) {
+                $useSigned = true;
+                Log::info('nota.lampiran.sign.use_signed', ['lampiran_id' => $lampiran->id, 'path' => $path]);
+            } else {
+                Log::warning('nota.lampiran.sign.missing_signed', ['lampiran_id' => $lampiran->id, 'path' => $path]);
+            }
+        }
+        if (! $useSigned) {
+            $origPath = (string) $lampiran->path;
+            if ($origPath && Storage::disk('local')->exists($origPath)) {
+                Log::info('nota.lampiran.sign.use_original', ['lampiran_id' => $lampiran->id, 'path' => $origPath]);
+            } else {
+                Log::warning('nota.lampiran.sign.missing_original', ['lampiran_id' => $lampiran->id, 'path' => $origPath]);
+            }
+        }
         $doc = [
             'id' => $lampiran->id,
             'name' => $lampiran->nama_file,
-            'url' => route('documents.download', ['lampiran' => $lampiran->id, 'type' => 'original']),
+            'url' => $useSigned
+                ? route('documents.download', ['lampiran' => $lampiran->id, 'type' => 'signed', 'version' => 'v1'])
+                : route('documents.download', ['lampiran' => $lampiran->id, 'type' => 'original']),
             'nota_dinas_id' => $lampiran->nota_dinas_id,
         ];
 
