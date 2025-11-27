@@ -1,6 +1,6 @@
 <script setup>
 import { Head, router } from '@inertiajs/vue3'
-import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import Modal from '@/Components/Modal.vue'
@@ -27,12 +27,13 @@ const clearFlash = () => { flash.value = { success: null, error: null, info: nul
 const pdfUrl = ref(props.doc?.url || '')
 const currentPage = ref(1)
 const totalPages = ref(0)
-const scale = ref(1.25)
+const scale = ref(1)
 
 const wrapRef = ref(null)
 const viewerReady = ref(false)
 const absCoord = ref({ x: 50, y: 50, width: 80, height: 80 })
 const percentCoord = ref({ x: 0, y: 0, width: 0, height: 0 })
+const pdfDoc = ref(null)
 
 const isEsignReady = computed(() => !!props.currentUserNik)
 function goToEsignSetup() { router.visit(route('profile.edit') + '#esign-setup') }
@@ -79,16 +80,35 @@ function applyImageDimsToRect() {
   updatePercentFromAbs()
 }
 
-function onLoaded(doc) { totalPages.value = doc?.numPages || 0 }
+function onLoaded(doc) { totalPages.value = doc?.numPages || 0; pdfDoc.value = doc; updateScaleToFit() }
 function onLoadingFailed() { flash.value.error = 'Gagal memuat dokumen.' }
 function onRenderingFailed() { flash.value.error = 'Gagal merender halaman PDF.' }
 function onRendered() { viewerReady.value = true; nextTick(updatePercentFromAbs) }
 
-function zoomIn() { scale.value = Math.min(scale.value + 0.25, 3) }
-function zoomOut() { scale.value = Math.max(scale.value - 0.25, 0.5) }
-function resetZoom() { scale.value = 1 }
+// zoom disabled: scale fixed to 1
 function prevPage() { currentPage.value = Math.max(currentPage.value - 1, 1) }
 function nextPage() { currentPage.value = Math.min(currentPage.value + 1, totalPages.value || currentPage.value + 1) }
+
+async function getPageDims() {
+  const doc = pdfDoc.value
+  if (!doc) return { width: 0, height: 0 }
+  const page = await doc.getPage(currentPage.value)
+  const vp = page.getViewport({ scale: 1 })
+  const w = Number(vp?.width) || 0
+  const h = Number(vp?.height) || 0
+  return { width: w, height: h }
+}
+
+async function updateScaleToFit() {
+  const el = wrapRef.value
+  const rect = el?.getBoundingClientRect()
+  const { width: pageW, height: pageH } = await getPageDims()
+  const vw = rect?.width || 0
+  const vh = rect?.height || Math.floor(window.innerHeight * 0.8) || 0
+  if (!pageW || !pageH || !vw || !vh) return
+  const s = Math.min(vw / pageW, vh / pageH)
+  scale.value = s > 0 ? s : 1
+}
 
 function updatePercentFromAbs() {
   const el = wrapRef.value?.querySelector('canvas') || wrapRef.value
@@ -272,7 +292,7 @@ function stopPolling() {
   if (pollTimeout) { clearTimeout(pollTimeout); pollTimeout = null }
 }
 
-function onWindowResize() { updateAbsFromPercent() }
+function onWindowResize() { updateScaleToFit(); updateAbsFromPercent() }
 function onVisibilityChange() { if (!document.hidden) { pollDelayMs.value = 3000 } }
 function onOnline() { pollDelayMs.value = 3000 }
 function onFocus() { pollDelayMs.value = 3000 }
@@ -284,6 +304,7 @@ onMounted(() => {
   window.addEventListener('focus', onFocus)
   if (!props.currentUserSignaturePath) { form.value.tampilan = 'INV' }
   if (props.currentUserNik) { form.value.signer_id = props.currentUserNik }
+  watch(currentPage, () => { updateScaleToFit() })
 })
 onUnmounted(() => {
   stopPolling()
@@ -336,11 +357,6 @@ onUnmounted(() => {
             <div class="flex flex-col gap-4 px-6 pt-6 md:flex-row md:items-center md:justify-between md:p-0">
               <h2 class="text-lg font-semibold text-gray-800 sm:text-xl">Dokumen</h2>
               <div class="flex flex-wrap gap-2 items-center">
-                <button @click="zoomOut" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">-</button>
-                <span class="text-sm text-gray-700">Zoom {{ Math.round(scale * 100) }}%</span>
-                <button @click="zoomIn" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">+</button>
-                <button @click="resetZoom" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">Reset</button>
-                <div class="mx-2 w-px h-6 bg-gray-300"></div>
                 <button @click="prevPage" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">Prev</button>
                 <span class="text-sm text-gray-700">Halaman {{ currentPage }} / {{ totalPages || '-' }}</span>
                 <button @click="nextPage" class="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200">Next</button>
