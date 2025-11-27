@@ -10,6 +10,7 @@ use App\Http\Controllers\NotaPersetujuanController;
 use App\Http\Controllers\PdfController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SkpdController;
+use App\Http\Controllers\PublicDocumentController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -81,3 +82,7 @@ Route::middleware(['auth', 'role:asisten,sekda,bupati'])->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+Route::get('/public/qr/{code}', [PublicDocumentController::class, 'qr'])->name('public.qr');
+Route::get('/public/document/{id}', [PublicDocumentController::class, 'view'])->middleware('public.access')->name('public.document.view');
+Route::get('/public/document/{id}/pdf', [PublicDocumentController::class, 'stream'])->middleware('public.access')->name('public.document.stream');

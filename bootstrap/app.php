@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'public.access' => \App\Http\Middleware\PublicDocumentAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
