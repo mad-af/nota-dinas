@@ -6,8 +6,10 @@ use App\Models\NotaDinas;
 use App\Models\NotaLampiran;
 use App\Models\NotaPengiriman;
 use App\Models\NotaPersetujuan;
+use App\Services\SignatureDocumentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class NotaPengirimanController extends Controller
@@ -48,16 +50,24 @@ class NotaPengirimanController extends Controller
         $lampiranIds = [];
 
         if ($request->hasFile('lampiran')) {
+            $svc = app(SignatureDocumentService::class);
             foreach ($request->file('lampiran') as $file) {
-                $path = $file->store('lampiran_nota', 'public');
+                try {
+                    $lampiran = NotaLampiran::create([
+                        'nota_dinas_id' => $nota->id,
+                        'nama_file' => $file->getClientOriginalName(),
+                        'path' => '',
+                    ]);
+                    $stored = $svc->storeOriginal($lampiran->id, $file);
+                    $lampiran->path = $stored['path'];
+                    $lampiran->save();
+                    Log::info('lampiran.uploaded', ['nota_id' => $nota->id, 'lampiran_id' => $lampiran->id, 'path' => $stored['path']]);
+                    $lampiranIds[] = $lampiran->id;
+                } catch (\Throwable $e) {
+                    Log::error('lampiran.upload_failed', ['nota_id' => $nota->id, 'error' => $e->getMessage()]);
 
-                $lampiran = NotaLampiran::create([
-                    'nota_dinas_id' => $nota->id,
-                    'nama_file' => $file->getClientOriginalName(),
-                    'path' => $path,
-                ]);
-
-                $lampiranIds[] = $lampiran->id;
+                    return redirect()->back()->with('error', 'Gagal mengunggah lampiran: '.$e->getMessage());
+                }
             }
         } else {
             $prevPengiriman = NotaPengiriman::where('nota_dinas_id', $nota->id)

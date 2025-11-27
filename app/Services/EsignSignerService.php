@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\SignatureDocumentService;
 
 class EsignSignerService
 {
@@ -49,13 +50,15 @@ class EsignSignerService
             } catch (\Throwable $e) {
             }
         }
+        $originX = isset($options['originX']) ? ($options['originX'] - 33) : 0;
+        $originY = isset($options['originY']) ? ($options['originY'] - 33) : 0;
         $signatureProperties = [
             array_filter([
                 'tampilan' => $tampilan,
                 'imageBase64' => $imageBase64,
                 'page' => $options['page'] ?? 1,
-                'originX' => $options['originX'] - 33 ?? 0,
-                'originY' => $options['originY'] - 33 ?? 0,
+                'originX' => $originX,
+                'originY' => $originY,
                 'width' => $options['width'] ?? 200,
                 'height' => $options['height'] ?? 100,
                 'tag_koordinat' => $options['tag_koordinat'] ?? null,
@@ -131,12 +134,45 @@ class EsignSignerService
 
         $signedFiles = (array) data_get($resp->json(), 'file', []);
         $savedPaths = [];
-        foreach ($signedFiles as $signedBase64) {
-            $binary = base64_decode((string) $signedBase64, true);
-            $filename = 'signed-'.($user->id ?? 'guest').'-'.now()->format('YmdHis').'-'.Str::random(6).'.pdf';
-            $path = 'signed/'.$filename;
-            Storage::put($path, $binary);
-            $savedPaths[] = $path;
+        $manifests = [];
+
+        $documentId = (int) ($options['document_id'] ?? ($options['lampiran_id'] ?? 0));
+        if ($documentId > 0) {
+            $svc = app(SignatureDocumentService::class);
+            $signerMeta = [
+                'user_id' => $user->id ?? null,
+                'name' => $user->name ?? null,
+                'nik' => $user->nik ?? null,
+                'method' => $method,
+                'signature_meta' => array_filter([
+                    'tampilan' => $tampilan,
+                    'page' => $options['page'] ?? null,
+                    'originX' => $originX,
+                    'originY' => $originY,
+                    'width' => $options['width'] ?? null,
+                    'height' => $options['height'] ?? null,
+                    'tag_koordinat' => $options['tag_koordinat'] ?? null,
+                    'location' => $options['location'] ?? null,
+                    'reason' => $options['reason'] ?? null,
+                    'pdfPassword' => $options['pdfPassword'] ?? null,
+                ], fn($v) => $v !== null),
+            ];
+
+            foreach ($signedFiles as $signedBase64) {
+                $res = $svc->storeSignedBase64($documentId, (string) $signedBase64, $signerMeta);
+                $savedPaths[] = $res['path'];
+                if (! empty($res['manifest'])) {
+                    $manifests[] = $res['manifest'];
+                }
+            }
+        } else {
+            foreach ($signedFiles as $signedBase64) {
+                $binary = base64_decode((string) $signedBase64, true);
+                $filename = 'signed-'.($user->id ?? 'guest').'-'.now()->format('YmdHis').'-'.Str::random(6).'.pdf';
+                $path = 'signed/'.$filename;
+                Storage::disk('local')->put($path, $binary);
+                $savedPaths[] = $path;
+            }
         }
 
         Log::info('esign.sign.success', [
@@ -147,13 +183,15 @@ class EsignSignerService
             'file' => $savedPaths[0] ?? null,
         ]);
 
-        return ['success' => true, 'paths' => $savedPaths];
+        return ['success' => true, 'paths' => $savedPaths, 'manifests' => $manifests];
     }
 
     public function signLampiran(User $user, NotaLampiran $lampiran, array $options): array
     {
+        $svc = app(SignatureDocumentService::class);
+        $path = $svc->latestOriginal($lampiran->id) ?: (string) $lampiran->path;
         try {
-            $contents = Storage::disk('public')->get($lampiran->path);
+            $contents = Storage::disk('local')->get($path);
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => 'Gagal membaca file lampiran.'];
         }
@@ -167,6 +205,7 @@ class EsignSignerService
             }
         }
 
+        $options['document_id'] = $lampiran->id;
         return $this->signFileBase64($user, $base64, $options);
     }
 }

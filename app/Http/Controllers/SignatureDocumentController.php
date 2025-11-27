@@ -107,6 +107,19 @@ class SignatureDocumentController extends Controller
         $path = null;
         if ($type === 'original') {
             $path = $svc->latestOriginal($lampiran->id);
+            if (! $path) {
+                $dbPath = (string) $lampiran->path;
+                if ($dbPath) {
+                    $disk = str_starts_with($dbPath, 'lampiran_nota') ? 'public' : 'local';
+                    if (Storage::disk($disk)->exists($dbPath)) {
+                        $filename = basename($dbPath);
+
+                        return response()->streamDownload(function () use ($disk, $dbPath) {
+                            echo Storage::disk($disk)->get($dbPath);
+                        }, $filename, ['Content-Type' => 'application/pdf']);
+                    }
+                }
+            }
         } elseif ($type === 'signed') {
             $path = $svc->latestSigned($lampiran->id, $version);
         }

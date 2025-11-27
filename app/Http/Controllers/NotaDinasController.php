@@ -78,7 +78,7 @@ class NotaDinasController extends Controller
         $doc = [
             'id' => $lampiran->id,
             'name' => $lampiran->nama_file,
-            'url' => asset('storage/'.$lampiran->path),
+            'url' => route('documents.download', ['lampiran' => $lampiran->id, 'type' => 'original']),
             'nota_dinas_id' => $lampiran->nota_dinas_id,
         ];
 
@@ -150,10 +150,15 @@ class NotaDinasController extends Controller
             return redirect()->route('nota.lampiran.view', $lampiranId)->with('error', $result['message'] ?? 'Gagal menghubungkan layanan eSign.');
         }
 
+        $path = $result['paths'][0] ?? null;
+        if (! $path) {
+            return redirect()->route('nota.lampiran.view', $lampiranId)->with('error', 'Path hasil tanda tangan tidak tersedia.');
+        }
+
         $userId = (string) $user->id;
         $ids = $lampiran->signature_user_ids ?? [];
         if (! in_array($userId, $ids, true)) {
-            $lampiran->addSignatureUserId($userId)->save();
+            $lampiran->addSignatureUserId($userId, $path)->save();
         }
 
         return redirect()->route('nota.lampiran.view', $lampiranId)->with('success', 'Dokumen berhasil ditandatangani.');
@@ -175,7 +180,7 @@ class NotaDinasController extends Controller
         $doc = [
             'id' => $lampiran->id,
             'name' => $lampiran->nama_file,
-            'url' => asset('storage/'.$lampiran->path),
+            'url' => route('documents.download', ['lampiran' => $lampiran->id, 'type' => 'original']),
             'nota_dinas_id' => $lampiran->nota_dinas_id,
         ];
 
@@ -341,7 +346,7 @@ class NotaDinasController extends Controller
                 return [
                     'id' => $lampiran->id,
                     'name' => $lampiran->nama_file,
-                    'url' => asset('storage/'.$lampiran->path),
+                    'url' => route('documents.download', ['lampiran' => $lampiran->id, 'type' => 'original']),
                     'created_at' => $lampiran->created_at,
                 ];
             })->values();
@@ -358,7 +363,7 @@ class NotaDinasController extends Controller
         $lampirans = $pengiriman->lampirans->map(function ($lampiran) {
             return [
                 'name' => $lampiran->nama_file,
-                'url' => asset('storage/'.$lampiran->path),
+                'url' => route('documents.download', ['lampiran' => $lampiran->id, 'type' => 'original']),
                 'created_at' => $lampiran->created_at,
             ];
         })->values();
