@@ -209,7 +209,7 @@ class SignatureDocumentService
         $pdf->SetTextColor(80, 80, 80);
 
         $text = 'Dokumen ini telah ditandatangani secara elektronik yang diterbitkan oleh Balai Besar Sertifikasi Elektronik (BSrE), BSSN. Untuk verifikasi keaslian tanda tangan elektronik, silahkan unggah dokumen pada laman ';
-        $url = 'https://tte.kominfo.go.id/verifyPDF';
+        $url = 'https://tte.komidigi.go.id/verifyPDF';
         $textDecoded = utf8_decode($text);
         $qrData = (is_string($publicQrCode) && strlen($publicQrCode) > 0) ? $publicQrCode : $url;
 
