@@ -146,7 +146,6 @@ class NotaDinasController extends Controller
             'reason' => ['nullable', 'string'],
             'pdfPassword' => ['nullable', 'string'],
         ]);
-        // dd($data);
 
         $options = [
             'signer_id' => optional($user)->nik,

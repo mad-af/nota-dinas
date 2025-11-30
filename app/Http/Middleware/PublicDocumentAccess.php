@@ -10,9 +10,8 @@ class PublicDocumentAccess
 {
     public function handle(Request $request, Closure $next)
     {
-        $id = (int) $request->route('id');
-        $token = (string) $request->query('token');
-        if ($id < 1 || ! $token) {
+        $token = (string) $request->route('token');
+        if (! $token) {
             abort(404);
         }
         try {
@@ -26,10 +25,7 @@ class PublicDocumentAccess
         }
         $tid = (int) ($data['id'] ?? 0);
         $exp = (int) ($data['exp'] ?? 0);
-        if ($tid !== $id) {
-            abort(404);
-        }
-        if ($exp < now()->timestamp) {
+        if ($tid < 1 || $exp < now()->timestamp) {
             abort(404);
         }
 

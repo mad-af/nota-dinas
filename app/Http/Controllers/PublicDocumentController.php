@@ -13,25 +13,38 @@ class PublicDocumentController extends Controller
 {
     public function qr(Request $request, string $code)
     {
-        $id = $this->decodeBase62($code);
+        $decoded = base64_decode($code, true);
+        if ($decoded === false) {
+            abort(404);
+        }
+        $id = (int) $decoded;
         if ($id < 1) {
             abort(404);
         }
         $tokenPayload = json_encode(['id' => $id, 'exp' => now()->addHour()->timestamp]);
         $token = Crypt::encryptString($tokenPayload);
-        $url = route('public.document.view', ['id' => $id, 'token' => $token]);
+        $url = route('public.document.view', ['token' => $token]);
 
         return redirect($url, 302);
     }
 
-    public function view(Request $request, int $id)
+    public function view(Request $request, string $token)
     {
-        $code = (string) $request->query('token');
+        try {
+            $json = Crypt::decryptString($token);
+            $data = json_decode($json, true);
+        } catch (\Throwable $e) {
+            abort(404);
+        }
+        $id = (int) data_get($data, 'id', 0);
+        if ($id < 1) {
+            abort(404);
+        }
         $lampiran = NotaLampiran::findOrFail($id);
         $svc = app(SignatureDocumentService::class);
         $signed = $svc->latestSigned($lampiran->id) ?: $svc->latestSigned($lampiran->id, 'v1');
         $isSigned = ! empty($signed);
-        $pdfUrl = route('public.document.stream', ['id' => $lampiran->id, 'token' => $code]);
+        $pdfUrl = route('public.document.stream', ['token' => $token]);
 
         return Inertia::render('Public/DocumentView', [
             'doc' => ['id' => (string) $lampiran->id, 'name' => (string) ($lampiran->nama_file ?? 'Dokumen'), 'url' => $pdfUrl],
@@ -41,9 +54,18 @@ class PublicDocumentController extends Controller
         ]);
     }
 
-    public function stream(Request $request, int $id)
+    public function stream(Request $request, string $token)
     {
-        $code = (string) $request->query('token');
+        try {
+            $json = Crypt::decryptString($token);
+            $data = json_decode($json, true);
+        } catch (\Throwable $e) {
+            abort(404);
+        }
+        $id = (int) data_get($data, 'id', 0);
+        if ($id < 1) {
+            abort(404);
+        }
         $lampiran = NotaLampiran::findOrFail($id);
         $svc = app(SignatureDocumentService::class);
         $path = $svc->latestSigned($lampiran->id) ?: $svc->latestOriginal($lampiran->id) ?: (string) $lampiran->path;
@@ -55,28 +77,5 @@ class PublicDocumentController extends Controller
         return response()->streamDownload(function () use ($path) {
             echo Storage::disk('local')->get($path);
         }, $filename, ['Content-Type' => 'application/pdf']);
-    }
-
-    private function decodeBase62(string $code): int
-    {
-        $alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-        $map = [];
-        for ($i = 0; $i < strlen($alphabet); $i++) {
-            $map[$alphabet[$i]] = $i;
-        }
-        $n = 0;
-        $len = strlen($code);
-        if ($len === 0) {
-            return 0;
-        }
-        for ($i = 0; $i < $len; $i++) {
-            $c = $code[$i];
-            if (! isset($map[$c])) {
-                return 0;
-            }
-            $n = ($n * 62) + $map[$c];
-        }
-
-        return (int) $n;
     }
 }
