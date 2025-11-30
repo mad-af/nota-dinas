@@ -13,12 +13,7 @@ class PublicDocumentController extends Controller
 {
     public function qr(Request $request, string $code)
     {
-        try {
-            $decoded = Crypt::decryptString($code);
-        } catch (\Throwable $e) {
-            abort(404);
-        }
-        $id = (int) $decoded;
+        $id = $this->decodeBase62($code);
         if ($id < 1) {
             abort(404);
         }
@@ -60,5 +55,28 @@ class PublicDocumentController extends Controller
         return response()->streamDownload(function () use ($path) {
             echo Storage::disk('local')->get($path);
         }, $filename, ['Content-Type' => 'application/pdf']);
+    }
+
+    private function decodeBase62(string $code): int
+    {
+        $alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        $map = [];
+        for ($i = 0; $i < strlen($alphabet); $i++) {
+            $map[$alphabet[$i]] = $i;
+        }
+        $n = 0;
+        $len = strlen($code);
+        if ($len === 0) {
+            return 0;
+        }
+        for ($i = 0; $i < $len; $i++) {
+            $c = $code[$i];
+            if (! isset($map[$c])) {
+                return 0;
+            }
+            $n = ($n * 62) + $map[$c];
+        }
+
+        return (int) $n;
     }
 }

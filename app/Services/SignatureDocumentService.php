@@ -187,7 +187,7 @@ class SignatureDocumentService
         }
     }
 
-    public function addElectronicSignatureFooter(string $absolutePath): string
+    public function addElectronicSignatureFooter(string $absolutePath, ?string $publicQrCode = null): string
     {
         if (! is_string($absolutePath) || $absolutePath === '' || ! file_exists($absolutePath)) {
             throw new \InvalidArgumentException('Path dokumen tidak valid.');
@@ -203,41 +203,65 @@ class SignatureDocumentService
             throw new \RuntimeException('Dokumen kosong atau tidak memiliki halaman.');
         }
 
+        $pdf->SetAutoPageBreak(false);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->SetFont('Times', '', 10);
+        $pdf->SetTextColor(80, 80, 80);
+
+        $text = 'Dokumen ini telah ditandatangani secara elektronik yang diterbitkan oleh Balai Besar Sertifikasi Elektronik (BSrE), BSSN. Untuk verifikasi keaslian tanda tangan elektronik, silahkan unggah dokumen pada laman ';
+        $url = 'https://tte.kominfo.go.id/verifyPDF';
+        $textDecoded = utf8_decode($text);
+        $qrData = (is_string($publicQrCode) && strlen($publicQrCode) > 0) ? $publicQrCode : $url;
+
+        $qr = \Endroid\QrCode\Builder\Builder::create()
+            ->writer(new \Endroid\QrCode\Writer\PngWriter)
+            ->data($qrData)
+            ->encoding(new \Endroid\QrCode\Encoding\Encoding('UTF-8'))
+            ->errorCorrectionLevel(new \Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelHigh)
+            ->roundBlockSizeMode(new \Endroid\QrCode\RoundBlockSizeMode\RoundBlockSizeModeMargin)
+            ->build();
+        $qrBytes = $qr->getString();
+        $qrPath = sys_get_temp_dir().'/qr_'.uniqid().'.png';
+        file_put_contents($qrPath, $qrBytes);
+
         for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
             $tplIdx = $pdf->importPage($pageNo);
             $size = $pdf->getTemplateSize($tplIdx);
             $pdf->AddPage($size['orientation'] ?? 'P', [$size['width'], $size['height']]);
             $pdf->useTemplate($tplIdx);
 
-            $pdf->SetAutoPageBreak(false);
-            $pdf->SetMargins(10, 10, 10);
-            $pdf->SetFont('Times', '', 10);
-            $pdf->SetTextColor(80, 80, 80);
+            $pageW = ($size['width'] ?? 210);
+            $pageH = ($size['height'] ?? 297);
+            $yBase = $pageH - 20;
 
-            $line1 = 'Dokumen ini telah ditandatangani secara elektronik yang diterbitkan oleh Balai Besar Sertifikasi Elektronik (BSrE), BSSN.';
-            $prefix = 'Untuk verifikasi keaslian tanda tangan elektronik, silahkan unggah dokumen pada laman ';
-            $url = 'https://tte.kominfo.go.id/verifyPDF';
+            $usableWidth = $pageW - 20;
+            $xStartBlock = 10;
+            $qrSizeMm = 15;
+            $gapMm = 5;
+            $textX = $xStartBlock + $qrSizeMm + $gapMm;
+            $rightWidth = $usableWidth - $qrSizeMm - $gapMm;
+            if ($rightWidth < 30) {
+                $rightWidth = 30;
+            }
 
-            $usableWidth = ($size['width'] ?? 210) - 20;
-            $yBase = ($size['height'] ?? 297) - 20;
+            if ($qrPath) {
+                $pdf->Image($qrPath, $xStartBlock, $yBase - $qrSizeMm, $qrSizeMm, $qrSizeMm, 'PNG');
+            }
 
-            $pdf->SetXY(10, $yBase);
-            $pdf->MultiCell($usableWidth, 5, utf8_decode($line1), 0, 'C');
+            $pdf->SetXY($textX, $yBase - $qrSizeMm);
+            $pdf->MultiCell($rightWidth, 5, $textDecoded, 0, 'L');
 
-            $prefixW = $pdf->GetStringWidth(utf8_decode($prefix));
-            $urlW = $pdf->GetStringWidth($url);
-            $totalW = $prefixW + $urlW;
-            $xStart = (($size['width'] ?? 210) - $totalW) / 2;
-            if ($xStart < 10) { $xStart = 10; }
-            $pdf->SetXY($xStart, $yBase + 5);
-            $pdf->SetTextColor(80, 80, 80);
-            $pdf->SetFont('Times', '', 10);
-            $pdf->Write(5, utf8_decode($prefix));
+            $nextY = $pdf->GetY();
+            $pdf->SetXY($textX, $nextY);
             $pdf->SetTextColor(0, 0, 255);
             $pdf->SetFont('Times', 'U', 10);
             $pdf->Write(5, $url, $url);
             $pdf->SetTextColor(80, 80, 80);
             $pdf->SetFont('Times', '', 10);
+        }
+
+        if ($qrPath) {
+            @unlink($qrPath);
         }
 
         return $pdf->Output('S');

@@ -201,7 +201,9 @@ class EsignSignerService
         try {
             if (! $signedExists) {
                 $absolute = Storage::disk('local')->path($path);
-                $contents = $svc->addElectronicSignatureFooter($absolute);
+                $code = $this->encodeBase62((int) $lampiran->id);
+                $publicQrUrl = route('public.qr', ['code' => $code]);
+                $contents = $svc->addElectronicSignatureFooter($absolute, $publicQrUrl);
             } else {
                 $contents = Storage::disk('local')->get($path);
             }
@@ -221,5 +223,21 @@ class EsignSignerService
         $options['document_id'] = $lampiran->id;
 
         return $this->signFileBase64($user, $base64, $options);
+    }
+
+    private function encodeBase62(int $n): string
+    {
+        $alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        if ($n === 0) {
+            return '0';
+        }
+        $s = '';
+        while ($n > 0) {
+            $r = $n % 62;
+            $s = $alphabet[$r].$s;
+            $n = intdiv($n, 62);
+        }
+
+        return $s;
     }
 }

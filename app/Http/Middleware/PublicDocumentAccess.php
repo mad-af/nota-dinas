@@ -13,24 +13,24 @@ class PublicDocumentAccess
         $id = (int) $request->route('id');
         $token = (string) $request->query('token');
         if ($id < 1 || ! $token) {
-            abort(410);
+            abort(404);
         }
         try {
             $json = Crypt::decryptString($token);
             $data = json_decode($json, true);
         } catch (\Throwable $e) {
-            abort(410);
+            abort(404);
         }
         if (! is_array($data)) {
-            abort(410);
+            abort(404);
         }
         $tid = (int) ($data['id'] ?? 0);
         $exp = (int) ($data['exp'] ?? 0);
         if ($tid !== $id) {
-            abort(410);
+            abort(404);
         }
         if ($exp < now()->timestamp) {
-            abort(410);
+            abort(404);
         }
 
         return $next($request);

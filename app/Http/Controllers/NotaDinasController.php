@@ -114,8 +114,7 @@ class NotaDinasController extends Controller
 
     public function signLampiran(Request $request, $lampiranId)
     {
-        try {
-            //code...
+  
         
         $lampiran = NotaLampiran::findOrFail($lampiranId);
         $this->authorizeLampiranOrAbort($lampiran);
@@ -188,10 +187,7 @@ class NotaDinasController extends Controller
         }
 
         return redirect()->route('nota.lampiran.view', $lampiranId)->with('success', 'Dokumen berhasil ditandatangani.');
-    } catch (\Throwable $th) {
-        dd($th);
-            //throw $th;
-        }
+ 
     }
 
     public function signPage($lampiranId)

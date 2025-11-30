@@ -83,6 +83,6 @@ Route::middleware(['auth', 'role:asisten,sekda,bupati'])->group(function () {
 
 require __DIR__.'/auth.php';
 
-Route::get('/public/qr/{code}', [PublicDocumentController::class, 'qr'])->name('public.qr');
+Route::get('/qr/{code}', [PublicDocumentController::class, 'qr'])->name('public.qr');
 Route::get('/public/document/{id}', [PublicDocumentController::class, 'view'])->middleware('public.access')->name('public.document.view');
 Route::get('/public/document/{id}/pdf', [PublicDocumentController::class, 'stream'])->middleware('public.access')->name('public.document.stream');
