@@ -1,6 +1,6 @@
 <script setup>
 import { Head } from '@inertiajs/vue3'
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, markRaw } from 'vue'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import SuccessFlash from '@/Components/SuccessFlash.vue'
 import ErrorFlash from '@/Components/ErrorFlash.vue'
@@ -27,7 +27,7 @@ const wrapRef = ref(null)
 const pdfDoc = ref(null)
 
 
-function onLoaded(doc) { totalPages.value = doc?.numPages || 0; pdfDoc.value = doc; updateScaleToFit() }
+function onLoaded(doc) { totalPages.value = doc?.numPages || 0; pdfDoc.value = markRaw(doc); updateScaleToFit() }
 function onLoadingFailed() { flash.value.error = 'Gagal memuat dokumen.' }
 function onRenderingFailed() { flash.value.error = 'Gagal merender halaman PDF.' }
 
@@ -115,7 +115,7 @@ onUnmounted(() => {
                       <div ref="wrapRef" class="relative w-full bg-gray-50">
                         <VuePdfEmbed annotation-layer text-layer :source="pdfUrl" :page="currentPage" :scale="scale"
                           @loaded="onLoaded" @loading-failed="onLoadingFailed" @rendering-failed="onRenderingFailed"
-                          class="min-h-[80vh] w-full h-full" />
+                          class="w-full h-full" />
                       </div>
                     </div>
                   </div>

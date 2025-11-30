@@ -115,7 +115,6 @@ class NotaDinasController extends Controller
     public function signLampiran(Request $request, $lampiranId)
     {
   
-        
         $lampiran = NotaLampiran::findOrFail($lampiranId);
         $this->authorizeLampiranOrAbort($lampiran);
         $ids = array_map('strval', $lampiran->signature_user_ids ?? []);

@@ -198,17 +198,17 @@ class EsignSignerService
                 break;
             }
         }
-        try {
-            if (! $signedExists) {
-                $absolute = Storage::disk('local')->path($path);
-                $code = $this->encodeBase62((int) $lampiran->id);
-                $publicQrUrl = route('public.qr', ['code' => $code]);
+        if (! $signedExists) {
+            $absolute = Storage::disk('local')->path($path);
+            $code = $this->encodeBase62((int) $lampiran->id);
+            $publicQrUrl = route('public.qr', ['code' => $code]);
+            try {
                 $contents = $svc->addElectronicSignatureFooter($absolute, $publicQrUrl);
-            } else {
+            } catch (\Throwable $e) {
                 $contents = Storage::disk('local')->get($path);
             }
-        } catch (\Throwable $e) {
-            return ['success' => false, 'message' => 'Gagal membaca/menyiapkan file lampiran.'];
+        } else {
+            $contents = Storage::disk('local')->get($path);
         }
 
         $base64 = base64_encode($contents);

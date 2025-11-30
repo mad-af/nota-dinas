@@ -1,6 +1,6 @@
 <script setup>
 import { Head, router } from '@inertiajs/vue3'
-import { ref, nextTick, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, computed, watch, markRaw } from 'vue'
 import axios from 'axios'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import Modal from '@/Components/Modal.vue'
@@ -80,7 +80,7 @@ function applyImageDimsToRect() {
   updatePercentFromAbs()
 }
 
-function onLoaded(doc) { totalPages.value = doc?.numPages || 0; pdfDoc.value = doc; updateScaleToFit() }
+function onLoaded(doc) { totalPages.value = doc?.numPages || 0; pdfDoc.value = markRaw(doc); updateScaleToFit() }
 function onLoadingFailed() { flash.value.error = 'Gagal memuat dokumen.' }
 function onRenderingFailed() { flash.value.error = 'Gagal merender halaman PDF.' }
 function onRendered() { viewerReady.value = true; nextTick(updatePercentFromAbs) }
@@ -370,7 +370,7 @@ onUnmounted(() => {
                   <div ref="wrapRef" class="relative w-full bg-gray-50">
                     <VuePdfEmbed annotation-layer text-layer :source="pdfUrl" :page="currentPage" :scale="scale"
                       @loaded="onLoaded" @loading-failed="onLoadingFailed" @rendering-failed="onRenderingFailed"
-                      @rendered="onRendered" class="min-h-[80vh] w-full h-full" />
+                      @rendered="onRendered" class="w-full h-full" />
                     <Vue3DraggableResizable v-if="viewerReady && form.tampilan === 'VIS'" :x="absCoord.x"
                       :y="absCoord.y" :w="absCoord.width" :h="absCoord.height" :parent="true" :draggable="!!pdfUrl"
                       :resizable="!!pdfUrl" :active="true" class="absolute" @dragging="onDrag" @resizing="onResize">
