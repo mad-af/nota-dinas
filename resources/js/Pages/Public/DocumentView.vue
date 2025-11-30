@@ -1,6 +1,6 @@
 <script setup>
 import { Head } from '@inertiajs/vue3'
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, markRaw } from 'vue'
 import VuePdfEmbed from 'vue-pdf-embed'
 import 'vue-pdf-embed/dist/styles/annotationLayer.css'
 import 'vue-pdf-embed/dist/styles/textLayer.css'
@@ -17,7 +17,7 @@ const scale = ref(1)
 const wrapRef = ref(null)
 const pdfDoc = ref(null)
 
-function onLoaded(doc) { totalPages.value = doc?.numPages || 0; pdfDoc.value = doc; updateScaleToFit() }
+function onLoaded(doc) { totalPages.value = doc?.numPages || 0; pdfDoc.value = markRaw(doc); updateScaleToFit() }
 function onLoadingFailed() { }
 function onRenderingFailed() { }
 
