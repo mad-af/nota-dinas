@@ -39,22 +39,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/approved-nota-dinas', [DashboardController::class, 'getApprovedNotaDinasBySkpd']);
     Route::get('/nota-dinas-stage', [DashboardController::class, 'getNotaDinasByStage']);
 
-    Route::get('/esign/sign', [EsignController::class, 'showForm'])->name('esign.sign.show');
-    Route::post('/esign/sign', [EsignController::class, 'submitSign'])->name('esign.sign.submit');
-    Route::post('/esign/get-totp', [EsignController::class, 'requestTotp'])->name('esign.totp.request');
-
     Route::post('/documents/{lampiran}/original', [SignatureDocumentController::class, 'uploadOriginal'])->name('documents.original.upload');
     Route::post('/documents/{lampiran}/signed', [SignatureDocumentController::class, 'uploadSigned'])->name('documents.signed.upload');
     Route::get('/documents/{lampiran}/download', [SignatureDocumentController::class, 'download'])->name('documents.download');
     Route::get('/documents/{lampiran}/manifest', [SignatureDocumentController::class, 'manifest'])->name('documents.manifest');
     Route::get('/documents/{lampiran}/versions', [SignatureDocumentController::class, 'versions'])->name('documents.versions');
-    Route::post('/esign/verify', [EsignController::class, 'verifyPdf'])->name('esign.verify');
-    Route::get('/esign/download/{filename}', [EsignController::class, 'downloadSigned'])->name('esign.download');
-
-    // PDF Upload & Viewer
-    Route::get('/pdf/upload-viewer', [PdfController::class, 'showUploadViewer'])->name('pdf.uploadViewer');
-    Route::post('/pdf/upload', [PdfController::class, 'upload'])->name('pdf.upload');
-
 });
 
 Route::middleware(['auth'])->group(function () {
