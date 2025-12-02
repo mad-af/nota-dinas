@@ -114,7 +114,7 @@ class NotaDinasController extends Controller
 
     public function signLampiran(Request $request, $lampiranId)
     {
-  
+
         $lampiran = NotaLampiran::findOrFail($lampiranId);
         $this->authorizeLampiranOrAbort($lampiran);
         $ids = array_map('strval', $lampiran->signature_user_ids ?? []);
@@ -167,10 +167,26 @@ class NotaDinasController extends Controller
         ];
 
         $service = app(EsignSignerService::class);
+        $t0 = microtime(true);
         $result = $service->signLampiran($user, $lampiran, $options);
+        $elapsedMs = (int) round((microtime(true) - $t0) * 1000);
 
         if (! ($result['success'] ?? false)) {
-            return redirect()->route('nota.lampiran.view', $lampiranId)->with('error', $result['message'] ?? 'Gagal menghubungkan layanan eSign.');
+            $modal = [
+                'type' => 'error',
+                'title' => 'Ooops!',
+                'message' => 'Gagal menandatangani surat.',
+                'detail' => (string) ($result['message'] ?? ''),
+                'status' => $result['status'] ?? null,
+                'elapsed_ms' => $elapsedMs,
+                'actions' => [
+                    ['route' => route('nota.lampiran.view', $lampiranId)],
+                ],
+            ];
+
+            return redirect()->route('nota.lampiran.view', $lampiranId)
+                ->with('error', $result['message'] ?? 'Gagal menghubungkan layanan eSign.')
+                ->with('modal', $modal);
         }
 
         $path = $result['paths'][0] ?? null;
@@ -184,8 +200,20 @@ class NotaDinasController extends Controller
             $lampiran->addSignatureUserId($userId, $path)->save();
         }
 
-        return redirect()->route('nota.lampiran.view', $lampiranId)->with('success', 'Dokumen berhasil ditandatangani.');
- 
+        $modal = [
+            'type' => 'success',
+            'title' => 'Mantap!',
+            'message' => 'Surat berhasil ditandatangani dan diproses.',
+            'elapsed_ms' => $elapsedMs,
+            'actions' => [
+                ['route' => route('nota.lampiran.sign.page', $lampiran->id)],
+            ],
+        ];
+
+        return redirect()->route('nota.lampiran.view', $lampiranId)
+            ->with('success', 'Dokumen berhasil ditandatangani.')
+            ->with('modal', $modal);
+
     }
 
     public function signPage($lampiranId)
