@@ -348,6 +348,17 @@ onUnmounted(() => {
   <AuthenticatedLayout>
     <SuccessFlash :flash="flash" @clearFlash="clearFlash" />
     <ErrorFlash :flash="flash" @clearFlash="clearFlash" />
+
+    <Transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0"
+      enter-to-class="opacity-100" leave-active-class="transition duration-200 ease-in" leave-from-class="opacity-100"
+      leave-to-class="opacity-0">
+      <div v-if="signing" class="flex fixed inset-0 z-50 justify-center items-center cursor-wait bg-black/40">
+        <div class="flex flex-col items-center">
+          <div class="w-12 h-12 rounded-full border-4 border-indigo-500 animate-spin border-t-transparent"></div>
+          <p class="mt-3 text-sm text-white">Memproses penandatanganan…</p>
+        </div>
+      </div>
+    </Transition>
     <Modal :show="showNotifModal" :closeable="notifModal?.type !== 'success'" @close="closeNotifModal">
       <div class="p-6 w-full max-w-md bg-white rounded-lg shadow-lg">
         <div class="flex gap-3 items-center mb-3">
@@ -373,7 +384,7 @@ onUnmounted(() => {
         <p v-if="notifModal?.type === 'success'" class="mb-3 text-xs text-gray-500">Anda akan dialihkan dalam {{
           redirectCountdown }} detik</p>
         <p v-if="notifModal?.elapsed_ms" class="mb-3 text-xs text-gray-500">Waktu proses TTE: {{ notifModal?.elapsed_ms
-          }} ms</p>
+        }} ms</p>
         <div v-if="notifModal?.type === 'error' && (notifModal?.status || notifModal?.detail)"
           class="p-3 mb-3 text-xs text-gray-100 bg-gray-900 rounded">
           <div v-if="notifModal?.status">Status: {{ notifModal?.status }}</div>
@@ -383,7 +394,7 @@ onUnmounted(() => {
           <button v-if="notifModal?.type !== 'success'" @click="closeNotifModal"
             class="px-3 py-2 text-xs bg-gray-100 rounded sm:text-sm hover:bg-gray-200">Tutup</button>
           <button v-else @click="router.visit(route('nota.lampiran.view', doc.id))"
-            class="px-3 py-2 text-xs bg-indigo-600 text-white rounded sm:text-sm hover:bg-indigo-700">Buka
+            class="px-3 py-2 text-xs text-white bg-indigo-600 rounded sm:text-sm hover:bg-indigo-700">Buka
             Preview</button>
         </div>
       </div>
