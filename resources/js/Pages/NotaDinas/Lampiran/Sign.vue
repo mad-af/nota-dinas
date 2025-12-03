@@ -178,6 +178,22 @@ const notifModal = ref(null)
 function openNotifModal(m) { notifModal.value = m; showNotifModal.value = true }
 function closeNotifModal() { showNotifModal.value = false; notifModal.value = null }
 
+const redirectTimer = ref(null)
+const redirectCountdown = ref(5)
+function scheduleRedirect() {
+  if (redirectTimer.value) { clearTimeout(redirectTimer.value); redirectTimer.value = null }
+  redirectCountdown.value = 5
+  const tick = () => {
+    if (redirectCountdown.value <= 1) {
+      router.visit(route('nota.lampiran.view', props.doc.id))
+      return
+    }
+    redirectCountdown.value -= 1
+    redirectTimer.value = setTimeout(tick, 1000)
+  }
+  redirectTimer.value = setTimeout(tick, 1000)
+}
+
 function validate() {
   if (!form.value.signer_id) { flash.value.error = 'NIK penanda tangan wajib diisi.'; return false }
   if (form.value.tampilan === 'VIS' && !props.currentUserSignaturePath) {
@@ -253,12 +269,12 @@ async function startSigning(passphrase) {
     const { data } = await axios.post(route('api.nota.lampiran.sign', props.doc.id), filteredLampiranPayload)
     flash.value.info = null
     if (data?.success) {
-      // statusText.value = 'Berhasil ditandatangani'
-      // flash.value.success = data?.message || 'Dokumen berhasil ditandatangani.'
-      if (data?.modal) openNotifModal(data.modal)
+      const modalPayload = data?.modal || { type: 'success', title: 'Mantap!', message: data?.message || 'Dokumen berhasil ditandatangani.' }
+      modalPayload.actions = [{ route: route('nota.lampiran.view', props.doc.id) }]
+      openNotifModal(modalPayload)
+      scheduleRedirect()
     } else {
       const msg = data?.message || 'Gagal proses TTE.'
-      // flash.value.error = msg
       statusText.value = 'Gagal, coba lagi.'
       if (data?.modal) openNotifModal(data.modal)
     }
@@ -318,6 +334,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   stopPolling()
+  if (redirectTimer.value) { clearTimeout(redirectTimer.value); redirectTimer.value = null }
   window.removeEventListener('resize', onWindowResize)
   window.removeEventListener('visibilitychange', onVisibilityChange)
   window.removeEventListener('online', onOnline)
@@ -331,7 +348,7 @@ onUnmounted(() => {
   <AuthenticatedLayout>
     <SuccessFlash :flash="flash" @clearFlash="clearFlash" />
     <ErrorFlash :flash="flash" @clearFlash="clearFlash" />
-    <Modal :show="showNotifModal" @close="closeNotifModal">
+    <Modal :show="showNotifModal" :closeable="notifModal?.type !== 'success'" @close="closeNotifModal">
       <div class="p-6 w-full max-w-md bg-white rounded-lg shadow-lg">
         <div class="flex gap-3 items-center mb-3">
           <div v-if="notifModal?.type === 'success'"
@@ -353,6 +370,8 @@ onUnmounted(() => {
             {{ notifModal?.title }}</h3>
         </div>
         <p class="mb-2 text-sm text-gray-700">{{ notifModal?.message }}</p>
+        <p v-if="notifModal?.type === 'success'" class="mb-3 text-xs text-gray-500">Anda akan dialihkan dalam {{
+          redirectCountdown }} detik</p>
         <p v-if="notifModal?.elapsed_ms" class="mb-3 text-xs text-gray-500">Waktu proses TTE: {{ notifModal?.elapsed_ms
           }} ms</p>
         <div v-if="notifModal?.type === 'error' && (notifModal?.status || notifModal?.detail)"
@@ -361,8 +380,11 @@ onUnmounted(() => {
           <div v-if="notifModal?.detail">Error: {{ notifModal?.detail }}</div>
         </div>
         <div class="flex gap-2 justify-end">
-          <button @click="closeNotifModal"
+          <button v-if="notifModal?.type !== 'success'" @click="closeNotifModal"
             class="px-3 py-2 text-xs bg-gray-100 rounded sm:text-sm hover:bg-gray-200">Tutup</button>
+          <button v-else @click="router.visit(route('nota.lampiran.view', doc.id))"
+            class="px-3 py-2 text-xs bg-indigo-600 text-white rounded sm:text-sm hover:bg-indigo-700">Buka
+            Preview</button>
         </div>
       </div>
     </Modal>
