@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\LogApiCall;
+use App\Services\Esign\Support\PayloadMasker;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -23,44 +24,6 @@ class EsignClient
             ->asJson();
 
         return $http;
-    }
-
-    protected function maskPayload(array $payload): array
-    {
-        $masked = $payload;
-        $keys = ['passphrase', 'totp', 'pdfPassword', 'file', 'signatureProperties.imageBase64'];
-        foreach ($keys as $k) {
-            $this->applyMask($masked, explode('.', $k));
-        }
-
-        return $masked;
-    }
-
-    protected function applyMask(&$node, array $path): void
-    {
-        if (empty($path)) {
-            return;
-        }
-        $key = array_shift($path);
-        if (! is_array($node)) {
-            return;
-        }
-        if (array_key_exists($key, $node)) {
-            if (empty($path)) {
-                if ($node[$key] !== null) {
-                    $node[$key] = '***';
-                }
-
-                return;
-            }
-            $this->applyMask($node[$key], $path);
-
-            return;
-        }
-        foreach ($node as &$child) {
-            $this->applyMask($child, array_merge([$key], $path));
-        }
-        unset($child);
     }
 
     protected function requestWithLog(string $endpoint, string $method, array $payload): Response
@@ -86,8 +49,8 @@ class EsignClient
 
         $statusCode = $resp->status();
         $responseBody = $resp->body();
-        $maskedPayload = $this->maskPayload($payload);
-        $maskedResponse = $this->maskResponseBody($responseBody);
+        $maskedPayload = PayloadMasker::maskRequest($payload);
+        $maskedResponse = PayloadMasker::maskResponse((string) $responseBody);
 
         LogApiCall::dispatch([
             'correlation_id' => $correlationId,
@@ -102,41 +65,6 @@ class EsignClient
         ]);
 
         return $resp;
-    }
-
-    protected function maskResponseBody($body): string
-    {
-        $s = (string) $body;
-        $arr = json_decode(json: $s, associative: true);
-        if (! is_array($arr)) {
-            return mb_strimwidth($s, 0, 5000, '...');
-        }
-        $this->maskResponseFiles($arr);
-        $encoded = json_encode($arr, JSON_UNESCAPED_UNICODE);
-
-        return mb_strimwidth((string) $encoded, 0, 5000, '...');
-    }
-
-    protected function maskResponseFiles(&$node): void
-    {
-        if (! is_array($node)) {
-            return;
-        }
-        if (array_key_exists('file', $node)) {
-            if (is_array($node['file'])) {
-                foreach ($node['file'] as $i => $v) {
-                    $node['file'][$i] = '***';
-                }
-            } elseif ($node['file'] !== null) {
-                $node['file'] = '***';
-            }
-        }
-        foreach ($node as &$child) {
-            if (is_array($child)) {
-                $this->maskResponseFiles($child);
-            }
-        }
-        unset($child);
     }
 
     public function signPdf(array $payload): Response
