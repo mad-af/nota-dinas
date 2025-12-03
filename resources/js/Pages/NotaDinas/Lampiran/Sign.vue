@@ -34,6 +34,17 @@ const viewerReady = ref(false)
 const absCoord = ref({ x: 50, y: 50, width: 80, height: 80 })
 const percentCoord = ref({ x: 0, y: 0, width: 0, height: 0 })
 const pdfDoc = ref(null)
+const originalDims = ref({ width: 0, height: 0 })
+const normalizedCoord = computed(() => {
+  const ow = originalDims.value.width || 0
+  const oh = originalDims.value.height || 0
+  return {
+    x: Math.round((percentCoord.value.x || 0) * ow),
+    y: Math.round((percentCoord.value.y || 0) * oh),
+    width: Math.round((percentCoord.value.width || 0) * ow),
+    height: Math.round((percentCoord.value.height || 0) * oh),
+  }
+})
 
 const isEsignReady = computed(() => !!props.currentUserNik)
 function goToEsignSetup() { router.visit(route('profile.edit') + '#esign-setup') }
@@ -80,10 +91,10 @@ function applyImageDimsToRect() {
   updatePercentFromAbs()
 }
 
-function onLoaded(doc) { totalPages.value = doc?.numPages || 0; pdfDoc.value = markRaw(doc); updateScaleToFit() }
+function onLoaded(doc) { totalPages.value = doc?.numPages || 0; pdfDoc.value = markRaw(doc); updateScaleToFit(); getPageDims().then(d => { originalDims.value = d; console.log('PDF original dims', d) }) }
 function onLoadingFailed() { flash.value.error = 'Gagal memuat dokumen.' }
 function onRenderingFailed() { flash.value.error = 'Gagal merender halaman PDF.' }
-function onRendered() { viewerReady.value = true; nextTick(updatePercentFromAbs) }
+function onRendered() { viewerReady.value = true; nextTick(() => { updatePercentFromAbs(); const el = wrapRef.value?.querySelector('canvas') || wrapRef.value; const rect = el?.getBoundingClientRect(); const w = rect?.width || 0; const h = rect?.height || 0; renderedDims.value = { width: w, height: h }; console.log('PDF rendered dims', renderedDims.value, 'scale', scale.value) }) }
 
 // zoom disabled: scale fixed to 1
 function prevPage() { currentPage.value = Math.max(currentPage.value - 1, 1) }
@@ -257,13 +268,14 @@ async function startSigning(passphrase) {
       tampilan: form.value.tampilan || 'VIS',
       signature_path: props.currentUserSignaturePath,
       page: currentPage.value,
-      originX: absCoord.value.x,
-      originY: absCoord.value.y,
-      width: absCoord.value.width,
-      height: absCoord.value.height,
+      originX: normalizedCoord.value.x,
+      originY: normalizedCoord.value.y,
+      width: normalizedCoord.value.width,
+      height: normalizedCoord.value.height,
       location: form.value.location,
       reason: form.value.reason,
     }
+    console.log("INI BRO", lampiranPayload)
     const filteredLampiranPayload = Object.fromEntries(Object.entries(lampiranPayload).filter(([_, v]) => v !== null && v !== undefined))
     flash.value.info = 'Dokumen sedang diproses.'
     const { data } = await axios.post(route('api.nota.lampiran.sign', props.doc.id), filteredLampiranPayload)
