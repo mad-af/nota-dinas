@@ -173,6 +173,11 @@ const pollingActive = ref(false)
 const pollDelayMs = ref(3000)
 let pollTimeout = null
 
+const showNotifModal = ref(false)
+const notifModal = ref(null)
+function openNotifModal(m) { notifModal.value = m; showNotifModal.value = true }
+function closeNotifModal() { showNotifModal.value = false; notifModal.value = null }
+
 function validate() {
   if (!form.value.signer_id) { flash.value.error = 'NIK penanda tangan wajib diisi.'; return false }
   if (form.value.tampilan === 'VIS' && !props.currentUserSignaturePath) {
@@ -244,20 +249,25 @@ async function startSigning(passphrase) {
       reason: form.value.reason,
     }
     const filteredLampiranPayload = Object.fromEntries(Object.entries(lampiranPayload).filter(([_, v]) => v !== null && v !== undefined))
-    await router.post(route('nota.lampiran.sign', props.doc.id), filteredLampiranPayload, {
-      preserveScroll: true,
-      onStart: () => { flash.value.info = 'Dokumen sedang diproses.' },
-      onSuccess: () => {
-        statusText.value = 'Berhasil ditandatangani'
-        flash.value.success = 'Dokumen berhasil ditandatangani.'
-        flash.value.info = null
-      },
-      onError: () => { flash.value.info = null },
-    })
+    flash.value.info = 'Dokumen sedang diproses.'
+    const { data } = await axios.post(route('api.nota.lampiran.sign', props.doc.id), filteredLampiranPayload)
+    flash.value.info = null
+    if (data?.success) {
+      // statusText.value = 'Berhasil ditandatangani'
+      // flash.value.success = data?.message || 'Dokumen berhasil ditandatangani.'
+      if (data?.modal) openNotifModal(data.modal)
+    } else {
+      const msg = data?.message || 'Gagal proses TTE.'
+      // flash.value.error = msg
+      statusText.value = 'Gagal, coba lagi.'
+      if (data?.modal) openNotifModal(data.modal)
+    }
   } catch (e) {
-    const msg = e?.response?.data?.error || e?.response?.data?.message || e?.message || 'Gagal proses TTE.'
-    flash.value.error = msg
+    // const msg = e?.response?.data?.error || e?.response?.data?.message || e?.message || 'Gagal proses TTE.'
+    // flash.value.error = msg
     statusText.value = 'Gagal, coba lagi.'
+    const m = e?.response?.data?.modal
+    if (m) openNotifModal(m)
   } finally {
     signing.value = false
   }
@@ -321,6 +331,41 @@ onUnmounted(() => {
   <AuthenticatedLayout>
     <SuccessFlash :flash="flash" @clearFlash="clearFlash" />
     <ErrorFlash :flash="flash" @clearFlash="clearFlash" />
+    <Modal :show="showNotifModal" @close="closeNotifModal">
+      <div class="p-6 w-full max-w-md bg-white rounded-lg shadow-lg">
+        <div class="flex gap-3 items-center mb-3">
+          <div v-if="notifModal?.type === 'success'"
+            class="flex justify-center items-center w-8 h-8 bg-green-100 rounded-full">
+            <svg class="w-5 h-5 text-green-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 12l2 2 4-4M20 12a8 8 0 11-16 0 8 8 0 0116 0z" />
+            </svg>
+          </div>
+          <div v-else class="flex justify-center items-center w-8 h-8 bg-red-100 rounded-full">
+            <svg class="w-5 h-5 text-red-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M4.93 4.93a10 10 0 1114.14 14.14A10 10 0 014.93 4.93z" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold" :class="notifModal?.type === 'success' ? 'text-green-700' : 'text-red-700'">
+            {{ notifModal?.title }}</h3>
+        </div>
+        <p class="mb-2 text-sm text-gray-700">{{ notifModal?.message }}</p>
+        <p v-if="notifModal?.elapsed_ms" class="mb-3 text-xs text-gray-500">Waktu proses TTE: {{ notifModal?.elapsed_ms
+          }} ms</p>
+        <div v-if="notifModal?.type === 'error' && (notifModal?.status || notifModal?.detail)"
+          class="p-3 mb-3 text-xs text-gray-100 bg-gray-900 rounded">
+          <div v-if="notifModal?.status">Status: {{ notifModal?.status }}</div>
+          <div v-if="notifModal?.detail">Error: {{ notifModal?.detail }}</div>
+        </div>
+        <div class="flex gap-2 justify-end">
+          <button @click="closeNotifModal"
+            class="px-3 py-2 text-xs bg-gray-100 rounded sm:text-sm hover:bg-gray-200">Tutup</button>
+        </div>
+      </div>
+    </Modal>
     <Transition appear name="fade">
       <div v-if="flash.info" class="mx-2 sm:mx-0">
         <div class="p-4 bg-blue-50 rounded-md">

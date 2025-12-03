@@ -216,6 +216,169 @@ class NotaDinasController extends Controller
 
     }
 
+    public function apiSignLampiran(Request $request, $lampiranId)
+    {
+        $lampiran = NotaLampiran::find($lampiranId);
+        if (! $lampiran) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lampiran tidak ditemukan.',
+            ], 404);
+        }
+
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pengguna tidak terautentikasi.',
+            ], 401);
+        }
+
+        $nota = NotaDinas::find($lampiran->nota_dinas_id);
+        $latestPengiriman = NotaPengiriman::where('nota_dinas_id', optional($nota)->id)
+            ->whereHas('lampirans', function ($q) use ($lampiran) {
+                $q->where('nota_lampirans.id', $lampiran->id);
+            })
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        $allowed = false;
+        if ($user->role === 'admin') {
+            $allowed = true;
+        }
+        if ($user->role === 'skpd' && $nota && $nota->skpd_id === $user->skpd_id) {
+            $allowed = true;
+        }
+        if ($latestPengiriman) {
+            if ($latestPengiriman->pengirim_id === $user->id) {
+                $allowed = true;
+            }
+            if ($latestPengiriman->dikirim_ke === $user->role) {
+                $allowed = true;
+            }
+        }
+        $ids = array_map('strval', $lampiran->signature_user_ids ?? []);
+        if (in_array((string) $user->id, $ids, true)) {
+            $allowed = true;
+        }
+        if (! $allowed) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses tidak diizinkan.',
+            ], 403);
+        }
+
+        $data = $request->validate([
+            'method' => ['required', 'in:passphrase,totp'],
+            'passphrase' => ['required_if:method,passphrase'],
+            'totp' => ['required_if:method,totp'],
+            'tampilan' => ['nullable', 'in:VISIBLE,INVISIBLE,VIS,INV'],
+            'imageBase64' => ['nullable', 'string'],
+            'signature_path' => ['nullable', 'string'],
+            'page' => ['nullable', 'integer'],
+            'originX' => ['nullable', 'numeric'],
+            'originY' => ['nullable', 'numeric'],
+            'width' => ['nullable', 'numeric'],
+            'height' => ['nullable', 'numeric'],
+            'tag_koordinat' => ['nullable', 'string'],
+            'location' => ['nullable', 'string'],
+            'reason' => ['nullable', 'string'],
+            'pdfPassword' => ['nullable', 'string'],
+        ]);
+
+        $options = [
+            'signer_id' => optional($user)->nik,
+            'method' => $data['method'] ?? 'passphrase',
+            'passphrase' => $data['passphrase'] ?? null,
+            'totp' => $data['totp'] ?? null,
+            'tampilan' => $data['tampilan'] ?? null,
+            'imageBase64' => $data['imageBase64'] ?? null,
+            'signature_path' => $data['signature_path'] ?? null,
+            'page' => $data['page'] ?? null,
+            'originX' => $data['originX'] ?? null,
+            'originY' => $data['originY'] ?? null,
+            'width' => $data['width'] ?? null,
+            'height' => $data['height'] ?? null,
+            'tag_koordinat' => $data['tag_koordinat'] ?? null,
+            'location' => $data['location'] ?? null,
+            'reason' => $data['reason'] ?? null,
+            'pdfPassword' => $data['pdfPassword'] ?? null,
+        ];
+
+        $service = app(EsignSignerService::class);
+        $t0 = microtime(true);
+        $result = $service->signLampiran($user, $lampiran, $options);
+        $elapsedMs = (int) round((microtime(true) - $t0) * 1000);
+
+        if (! ($result['success'] ?? false)) {
+            $modal = [
+                'type' => 'error',
+                'title' => 'Ooops!',
+                'message' => 'Gagal menandatangani surat.',
+                'detail' => (string) ($result['message'] ?? ''),
+                'status' => $result['status'] ?? null,
+                'elapsed_ms' => $elapsedMs,
+                'actions' => [
+                    ['route' => route('nota.lampiran.view', $lampiranId)],
+                ],
+            ];
+
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'] ?? 'Gagal menghubungkan layanan eSign.',
+                'modal' => $modal,
+            ], 502);
+        }
+
+        $path = $result['paths'][0] ?? null;
+        if (! $path) {
+            $modal = [
+                'type' => 'error',
+                'title' => 'Ooops!',
+                'message' => 'Path hasil tanda tangan tidak tersedia.',
+                'detail' => '',
+                'status' => $result['status'] ?? null,
+                'elapsed_ms' => $elapsedMs,
+                'actions' => [
+                    ['route' => route('nota.lampiran.view', $lampiranId)],
+                ],
+            ];
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Path hasil tanda tangan tidak tersedia.',
+                'modal' => $modal,
+            ], 500);
+        }
+
+        $userId = (string) $user->id;
+        $ids = $lampiran->signature_user_ids ?? [];
+        if (! in_array($userId, $ids, true)) {
+            $lampiran->addSignatureUserId($userId, $path)->save();
+        }
+
+        $modal = [
+            'type' => 'success',
+            'title' => 'Mantap!',
+            'message' => 'Surat berhasil ditandatangani dan diproses.',
+            'elapsed_ms' => $elapsedMs,
+            'actions' => [
+                ['route' => route('nota.lampiran.sign.page', $lampiran->id)],
+            ],
+        ];
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Dokumen berhasil ditandatangani.',
+            'data' => [
+                'path' => $path,
+                'lampiran_id' => $lampiran->id,
+                'user_id' => $user->id,
+            ],
+            'modal' => $modal,
+        ], 200);
+    }
+
     public function signPage($lampiranId)
     {
         $lampiran = NotaLampiran::findOrFail($lampiranId);

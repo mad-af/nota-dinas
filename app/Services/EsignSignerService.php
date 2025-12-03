@@ -212,11 +212,13 @@ class EsignSignerService
         }
 
         $base64 = base64_encode($contents);
+
         if (! empty($options['signature_path'])) {
             try {
                 $imgBytes = Storage::disk('public')->get((string) $options['signature_path']);
-                $options['imageBase64'] = base64_encode($imgBytes);
+                $options['imageBase64'] = base64_encode(string: $imgBytes);
             } catch (\Throwable $e) {
+                dd("ee", $e);
             }
         }
 

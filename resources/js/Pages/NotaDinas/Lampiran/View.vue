@@ -15,7 +15,6 @@ const props = defineProps({
 })
 
 const page = usePage()
-const modal = ref(null)
 
 const pdfUrl = ref(props.doc?.url || '')
 const currentPage = ref(1)
@@ -26,8 +25,8 @@ const pdfDoc = ref(null)
 
 
 function onLoaded(doc) { totalPages.value = doc?.numPages || 0; pdfDoc.value = markRaw(doc); updateScaleToFit() }
-function onLoadingFailed() { modal.value = { type: 'error', title: 'Ooops!', message: 'Gagal memuat dokumen.' } }
-function onRenderingFailed() { modal.value = { type: 'error', title: 'Ooops!', message: 'Gagal merender halaman PDF.' } }
+function onLoadingFailed() { }
+function onRenderingFailed() { }
 
 // zoom disabled: scale fixed to 1
 function prevPage() { currentPage.value = Math.max(currentPage.value - 1, 1) }
@@ -63,65 +62,19 @@ function onWindowResize() { updateScaleToFit() }
 onMounted(() => {
   window.addEventListener('resize', onWindowResize)
   watch(currentPage, () => { updateScaleToFit() })
-  const f = page?.props?.flash || {}
-  modal.value = page?.props?.modal || (f?.modal || null)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', onWindowResize)
 })
 
-watch(() => page.props.flash, (f) => {
-  if (!page?.props?.modal) {
-    modal.value = f?.modal || null
-  }
-})
-watch(() => page.props.modal, (m) => {
-  modal.value = m || modal.value
-})
 
-function closeModal() { modal.value = null }
 </script>
 
 <template>
 
   <Head :title="doc?.name ? `Lampiran: ${doc.name}` : 'Lampiran'" />
   <AuthenticatedLayout>
-
-    <div v-if="modal" class="flex fixed inset-0 z-50 justify-center items-center bg-black/40">
-      <div class="p-6 w-full max-w-md bg-white rounded-lg shadow-lg">
-        <div class="flex gap-3 items-center mb-3">
-          <div v-if="modal.type === 'success'"
-            class="flex justify-center items-center w-8 h-8 bg-green-100 rounded-full">
-            <svg class="w-5 h-5 text-green-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 12l2 2 4-4M20 12a8 8 0 11-16 0 8 8 0 0116 0z" />
-            </svg>
-          </div>
-          <div v-else class="flex justify-center items-center w-8 h-8 bg-red-100 rounded-full">
-            <svg class="w-5 h-5 text-red-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M4.93 4.93a10 10 0 1114.14 14.14A10 10 0 014.93 4.93z" />
-            </svg>
-          </div>
-          <h3 class="text-lg font-semibold" :class="modal.type === 'success' ? 'text-green-700' : 'text-red-700'">{{
-            modal.title }}</h3>
-        </div>
-        <p class="mb-2 text-sm text-gray-700">{{ modal.message }}</p>
-        <p v-if="modal.elapsed_ms" class="mb-3 text-xs text-gray-500">Waktu proses TTE: {{ modal.elapsed_ms }} ms</p>
-        <div v-if="modal.type === 'error' && (modal.status || modal.detail)"
-          class="p-3 mb-3 text-xs text-gray-100 bg-gray-900 rounded">
-          <div v-if="modal.status">Status: {{ modal.status }}</div>
-          <div v-if="modal.detail">Error: {{ modal.detail }}</div>
-        </div>
-        <div class="flex gap-2 justify-end">
-          <button @click="closeModal"
-            class="px-3 py-2 text-xs bg-gray-100 rounded sm:text-sm hover:bg-gray-200">Tutup</button>
-        </div>
-      </div>
-    </div>
 
     <div class="pt-6 mx-2 sm:pt-24 sm:px-2">
       <div class="mx-auto space-y-6 max-w-6xl sm:px-6 lg:px-6">
