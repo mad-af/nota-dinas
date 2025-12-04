@@ -31,7 +31,9 @@ class EsignSignerService
         //     $statusPayload['email'] = $user->email;
         // }
 
-        $statusResp = $this->esign->checkUserStatus($statusPayload);
+        $documentId = (int) ($options['document_id'] ?? ($options['lampiran_id'] ?? 0));
+        $correlationId = $documentId > 0 ? (string) $documentId : (string) Str::uuid();
+        $statusResp = $this->esign->checkUserStatus($statusPayload, ['correlation_id' => $correlationId, 'document_id' => $documentId]);
         if ($statusResp->ok()) {
             $userStatus = data_get($statusResp->json(), 'status');
             if ($userStatus !== 'ISSUE') {
@@ -118,8 +120,9 @@ class EsignSignerService
             return $v !== null;
         });
 
-        $correlationId = (string) Str::uuid();
-        $resp = $this->esign->signPdf($payload);
+        $documentId = (int) ($options['document_id'] ?? ($options['lampiran_id'] ?? 0));
+        $correlationId = $documentId > 0 ? (string) $documentId : (string) Str::uuid();
+        $resp = $this->esign->signPdf($payload, ['correlation_id' => $correlationId, 'document_id' => $documentId]);
 
         if ($resp->failed()) {
             Log::warning('esign.sign.failed', [

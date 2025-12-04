@@ -26,9 +26,9 @@ class EsignClient
         return $http;
     }
 
-    protected function requestWithLog(string $endpoint, string $method, array $payload): Response
+    protected function requestWithLog(string $endpoint, string $method, array $payload, array $context = []): Response
     {
-        $correlationId = (string) Str::uuid();
+        $correlationId = (string) ($context['correlation_id'] ?? $context['document_id'] ?? $context['lampiran_id'] ?? Str::uuid());
         $userId = Auth::id();
         $t0 = microtime(true);
         $resp = null;
@@ -67,9 +67,9 @@ class EsignClient
         return $resp;
     }
 
-    public function signPdf(array $payload): Response
+    public function signPdf(array $payload, array $context = []): Response
     {
-        return $this->requestWithLog('/api/v2/sign/pdf', 'POST', $payload);
+        return $this->requestWithLog('/api/v2/sign/pdf', 'POST', $payload, $context);
     }
 
     public function getTotp(array $payload): Response
@@ -92,9 +92,9 @@ class EsignClient
         return $this->requestWithLog('/api/v2/verify/pdf', 'POST', $payload);
     }
 
-    public function checkUserStatus(array $payload): Response
+    public function checkUserStatus(array $payload, array $context = []): Response
     {
-        return $this->requestWithLog('/api/v2/user/check/status', 'POST', $payload);
+        return $this->requestWithLog('/api/v2/user/check/status', 'POST', $payload, $context);
     }
 
     public function getSealActivation(array $payload): Response
