@@ -27,6 +27,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/nota-dinas/lampiran/{lampiran}/tanda-tangan', [NotaDinasController::class, 'signPage'])->name('nota.lampiran.sign.page');
 
     Route::post('/api/nota-dinas/lampiran/{lampiran}/sign', [NotaDinasController::class, 'apiSignLampiran'])->name('api.nota.lampiran.sign');
+
+    Route::get('/api-logs', [\App\Http\Controllers\ApiLogController::class, 'index'])->name('api-logs.index');
     Route::get('/nota-dinas/lampiran/{lampiran}/status', [NotaDinasController::class, 'lampiranStatus'])->name('nota.lampiran.status');
     Route::post('/nota-dinas/{nota}/kirim', [NotaPengirimanController::class, 'store'])->name('nota.pengiriman.store');
     Route::get('/nota/lampiran/{tipe}/{id}', [NotaDinasController::class, 'getLampiranHistori']);
